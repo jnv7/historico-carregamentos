@@ -1,5 +1,3 @@
-import type { ChargingSession } from './types'
-
 /** Returns a YYYY-MM-DD key for a date, in local time. */
 export function dayKey(date: Date): string {
   const year = date.getFullYear()
@@ -34,16 +32,16 @@ export function getMonthGrid(year: number, month: number): Date[][] {
   return weeks
 }
 
-/** Groups charging sessions by their local calendar day (based on startAt). */
-export function groupSessionsByDay(sessions: ChargingSession[]): Map<string, ChargingSession[]> {
-  const map = new Map<string, ChargingSession[]>()
-  for (const session of sessions) {
-    const key = dayKey(new Date(session.startAt))
+/** Groups any dated items (charging sessions, fuel entries, ...) by their local calendar day. */
+export function groupByDay<T extends { startAt: string }>(items: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const key = dayKey(new Date(item.startAt))
     const existing = map.get(key)
     if (existing) {
-      existing.push(session)
+      existing.push(item)
     } else {
-      map.set(key, [session])
+      map.set(key, [item])
     }
   }
   return map

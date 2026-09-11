@@ -59,14 +59,25 @@
   font-weight: 700;
 }
 
-.dot {
+.dots {
+  display: flex;
+  gap: 3px;
+}
+
+.dot,
+.dotFuel {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--accent);
 }
 
-.day.selected .dot {
+.dotFuel {
+  background: var(--fuel);
+}
+
+.day.selected .dot,
+.day.selected .dotFuel {
   background: #032027;
 }
 

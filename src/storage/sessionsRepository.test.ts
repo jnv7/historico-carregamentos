@@ -6,6 +6,7 @@ function makeSession(overrides: Partial<ChargingSession> = {}): ChargingSession 
   return {
     id: '1',
     carId: 'default-car',
+    kind: 'electric',
     startAt: '2024-01-01T10:00:00.000Z',
     endAt: null,
     energyKwh: 10,

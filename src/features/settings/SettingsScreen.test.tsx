@@ -12,8 +12,10 @@ describe('SettingsScreen', () => {
       <SettingsScreen
         settings={DEFAULT_SETTINGS}
         sessions={[]}
+        fuelEntries={[]}
         onSettingsChange={onSettingsChange}
         onRestoreSessions={() => {}}
+        onRestoreFuelEntries={() => {}}
         onDeleteAll={() => {}}
       />,
     )
@@ -31,8 +33,10 @@ describe('SettingsScreen', () => {
       <SettingsScreen
         settings={DEFAULT_SETTINGS}
         sessions={[]}
+        fuelEntries={[]}
         onSettingsChange={() => {}}
         onRestoreSessions={() => {}}
+        onRestoreFuelEntries={() => {}}
         onDeleteAll={() => {}}
       />,
     )

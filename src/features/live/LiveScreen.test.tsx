@@ -9,6 +9,7 @@ function makeLiveSession(): ChargingSession {
   return {
     id: 'live-1',
     carId: DEFAULT_CAR_ID,
+    kind: 'electric',
     startAt,
     endAt: null,
     energyKwh: 0,

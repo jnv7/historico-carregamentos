@@ -39,6 +39,10 @@ export function formatEnergy(kWh: number): string {
   return `${kWh.toLocaleString('pt-PT', { maximumFractionDigits: 2 })} kWh`
 }
 
+export function formatLiters(liters: number): string {
+  return `${liters.toLocaleString('pt-PT', { maximumFractionDigits: 2 })} L`
+}
+
 /** Formats a duration in milliseconds as "1h 23m" (or "23m" when under an hour). */
 export function formatDuration(ms: number): string {
   const totalMinutes = Math.max(0, Math.round(ms / 60000))

@@ -1,20 +1,26 @@
-import type { CarSettings, ChargingSession } from '../domain/types'
+import type { CarSettings, ChargingSession, FuelEntry } from '../domain/types'
 
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
 
 export interface BackupFile {
   version: number
   exportedAt: string
   settings: CarSettings
   sessions: ChargingSession[]
+  fuelEntries: FuelEntry[]
 }
 
-export function createBackup(settings: CarSettings, sessions: ChargingSession[]): BackupFile {
+export function createBackup(
+  settings: CarSettings,
+  sessions: ChargingSession[],
+  fuelEntries: FuelEntry[],
+): BackupFile {
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     settings,
     sessions,
+    fuelEntries,
   }
 }
 
@@ -32,10 +38,11 @@ export function parseBackup(raw: string): BackupFile {
     throw new InvalidBackupError('O ficheiro não tem o formato esperado de uma cópia de segurança.')
   }
 
-  return data
+  // Backups from before fuel entries existed (version 1) simply have none.
+  return { ...data, fuelEntries: data.fuelEntries ?? [] }
 }
 
-function isBackupFile(data: unknown): data is BackupFile {
+function isBackupFile(data: unknown): data is BackupFile & { fuelEntries?: FuelEntry[] } {
   if (typeof data !== 'object' || data === null) return false
   const candidate = data as Record<string, unknown>
   return (
@@ -43,6 +50,7 @@ function isBackupFile(data: unknown): data is BackupFile {
     typeof candidate.exportedAt === 'string' &&
     typeof candidate.settings === 'object' &&
     candidate.settings !== null &&
-    Array.isArray(candidate.sessions)
+    Array.isArray(candidate.sessions) &&
+    (candidate.fuelEntries === undefined || Array.isArray(candidate.fuelEntries))
   )
 }

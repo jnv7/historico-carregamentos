@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { capitalizeFirst, formatCurrency, formatDuration, formatEnergy } from './format'
+import {
+  capitalizeFirst,
+  formatCurrency,
+  formatDuration,
+  formatEnergy,
+  formatLiters,
+} from './format'
 
 describe('formatCurrency', () => {
   it('formats a value as EUR using Portuguese conventions', () => {
@@ -12,6 +18,13 @@ describe('formatEnergy', () => {
   it('formats energy with a kWh suffix', () => {
     expect(formatEnergy(10)).toBe('10 kWh')
     expect(formatEnergy(10.333)).toBe('10,33 kWh')
+  })
+})
+
+describe('formatLiters', () => {
+  it('formats litres with an L suffix', () => {
+    expect(formatLiters(35)).toBe('35 L')
+    expect(formatLiters(35.678)).toBe('35,68 L')
   })
 })
 

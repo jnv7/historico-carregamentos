@@ -28,6 +28,7 @@ export function LiveScreen({ carId, tariffs, sessions, onAdd, onUpdate }: LiveSc
   function handleStart() {
     onAdd({
       carId,
+      kind: 'electric',
       startAt: new Date().toISOString(),
       endAt: null,
       energyKwh: 0,

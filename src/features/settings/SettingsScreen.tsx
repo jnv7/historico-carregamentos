@@ -1,20 +1,24 @@
-import type { CarSettings, ChargingSession } from '../../domain/types'
+import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
 import { BackupSection } from './BackupSection'
 import { TariffEditor } from './TariffEditor'
 
 export interface SettingsScreenProps {
   settings: CarSettings
   sessions: ChargingSession[]
+  fuelEntries: FuelEntry[]
   onSettingsChange: (settings: CarSettings) => void
   onRestoreSessions: (sessions: ChargingSession[]) => void
+  onRestoreFuelEntries: (fuelEntries: FuelEntry[]) => void
   onDeleteAll: () => void
 }
 
 export function SettingsScreen({
   settings,
   sessions,
+  fuelEntries,
   onSettingsChange,
   onRestoreSessions,
+  onRestoreFuelEntries,
   onDeleteAll,
 }: SettingsScreenProps) {
   return (
@@ -39,8 +43,10 @@ export function SettingsScreen({
       <BackupSection
         settings={settings}
         sessions={sessions}
+        fuelEntries={fuelEntries}
         onSettingsChange={onSettingsChange}
         onRestoreSessions={onRestoreSessions}
+        onRestoreFuelEntries={onRestoreFuelEntries}
         onDeleteAll={onDeleteAll}
       />
     </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { DateTimeFields } from '../../components/DateTimeFields'
 import { combineDateAndTime, toDateInputValue, toTimeInputValue } from '../../domain/datetime'
 import { inferCost } from '../../domain/tariffs'
 import type { ChargerType, ChargingSession, Tariff } from '../../domain/types'
@@ -79,6 +80,7 @@ export function SessionForm({
 
     onSubmit({
       carId,
+      kind: 'electric',
       startAt,
       endAt: initialSession?.endAt ?? null,
       energyKwh: energy,
@@ -95,26 +97,13 @@ export function SessionForm({
 
   return (
     <form onSubmit={handleSubmit} className="stack" aria-label="Registo de carregamento">
-      <div className="row">
-        <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="session-date">Data *</label>
-          <input
-            id="session-date"
-            type="date"
-            value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
-          />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="session-time">Hora</label>
-          <input
-            id="session-time"
-            type="time"
-            value={timeValue}
-            onChange={(e) => setTimeValue(e.target.value)}
-          />
-        </div>
-      </div>
+      <DateTimeFields
+        idPrefix="session"
+        dateValue={dateValue}
+        timeValue={timeValue}
+        onDateChange={setDateValue}
+        onTimeChange={setTimeValue}
+      />
 
       <div className="field">
         <label htmlFor="session-energy">Energia carregada (kWh) *</label>

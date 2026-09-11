@@ -6,6 +6,7 @@ function makeSession(overrides: Partial<ChargingSession>): ChargingSession {
   return {
     id: Math.random().toString(),
     carId: DEFAULT_CAR_ID,
+    kind: 'electric',
     startAt: new Date().toISOString(),
     endAt: null,
     energyKwh: 0,

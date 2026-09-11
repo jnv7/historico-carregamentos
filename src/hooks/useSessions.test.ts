@@ -6,6 +6,7 @@ import { useSessions, type NewChargingSession } from './useSessions'
 
 const baseSession: NewChargingSession = {
   carId: DEFAULT_CAR_ID,
+  kind: 'electric',
   startAt: '2024-01-01T10:00:00.000Z',
   endAt: null,
   energyKwh: 12,

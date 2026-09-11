@@ -1,8 +1,22 @@
 import { useMemo, useState } from 'react'
 import { Modal } from '../../components/Modal'
-import { dayKey, getMonthGrid, groupSessionsByDay } from '../../domain/calendar'
-import { capitalizeFirst, formatCurrency, formatEnergy, formatTime } from '../../domain/format'
-import type { ChargingSession, Tariff } from '../../domain/types'
+import { dayKey, getMonthGrid, groupByDay } from '../../domain/calendar'
+import {
+  capitalizeFirst,
+  formatCurrency,
+  formatEnergy,
+  formatLiters,
+  formatTime,
+} from '../../domain/format'
+import type {
+  ChargingSession,
+  EntryKind,
+  FuelEntry,
+  Tariff,
+  VehicleEntry,
+} from '../../domain/types'
+import { FuelEntryForm } from '../fuel/FuelEntryForm'
+import type { NewFuelEntry } from '../../hooks/useFuelEntries'
 import type { NewChargingSession } from '../../hooks/useSessions'
 import { SessionForm } from './SessionForm'
 import styles from './CalendarScreen.module.css'
@@ -11,37 +25,54 @@ const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
 const monthLabelFormatter = new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric' })
 
+interface FormState {
+  kind: EntryKind
+  entry: VehicleEntry | null
+}
+
 export interface CalendarScreenProps {
   carId: string
   tariffs: Tariff[]
   sessions: ChargingSession[]
-  onAdd: (session: NewChargingSession) => void
-  onUpdate: (id: string, changes: Partial<ChargingSession>) => void
-  onDelete: (id: string) => void
+  fuelEntries: FuelEntry[]
+  onAddSession: (session: NewChargingSession) => void
+  onUpdateSession: (id: string, changes: Partial<ChargingSession>) => void
+  onDeleteSession: (id: string) => void
+  onAddFuelEntry: (entry: NewFuelEntry) => void
+  onUpdateFuelEntry: (id: string, changes: Partial<FuelEntry>) => void
+  onDeleteFuelEntry: (id: string) => void
 }
 
 export function CalendarScreen({
   carId,
   tariffs,
   sessions,
-  onAdd,
-  onUpdate,
-  onDelete,
+  fuelEntries,
+  onAddSession,
+  onUpdateSession,
+  onDeleteSession,
+  onAddFuelEntry,
+  onUpdateFuelEntry,
+  onDeleteFuelEntry,
 }: CalendarScreenProps) {
   const today = useMemo(() => new Date(), [])
   const [monthCursor, setMonthCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   )
   const [selectedDay, setSelectedDay] = useState(() => dayKey(today))
-  const [formOpen, setFormOpen] = useState(false)
-  const [editingSession, setEditingSession] = useState<ChargingSession | null>(null)
+  const [formState, setFormState] = useState<FormState | null>(null)
 
   const weeks = useMemo(
     () => getMonthGrid(monthCursor.getFullYear(), monthCursor.getMonth()),
     [monthCursor],
   )
-  const sessionsByDay = useMemo(() => groupSessionsByDay(sessions), [sessions])
-  const selectedSessions = (sessionsByDay.get(selectedDay) ?? [])
+
+  const allEntries = useMemo<VehicleEntry[]>(
+    () => [...sessions, ...fuelEntries],
+    [sessions, fuelEntries],
+  )
+  const entriesByDay = useMemo(() => groupByDay(allEntries), [allEntries])
+  const selectedEntries = (entriesByDay.get(selectedDay) ?? [])
     .slice()
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
 
@@ -49,29 +80,46 @@ export function CalendarScreen({
     setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
   }
 
-  function openAddForm() {
-    setEditingSession(null)
-    setFormOpen(true)
+  function openAddForm(kind: EntryKind) {
+    setFormState({ kind, entry: null })
   }
 
-  function openEditForm(session: ChargingSession) {
-    setEditingSession(session)
-    setFormOpen(true)
+  function openEditForm(entry: VehicleEntry) {
+    setFormState({ kind: entry.kind, entry })
   }
 
-  function handleSubmit(values: NewChargingSession) {
-    if (editingSession) {
-      onUpdate(editingSession.id, values)
+  function closeForm() {
+    setFormState(null)
+  }
+
+  function handleSubmitSession(values: NewChargingSession) {
+    if (formState?.entry) {
+      onUpdateSession(formState.entry.id, values)
     } else {
-      onAdd(values)
+      onAddSession(values)
     }
-    setFormOpen(false)
-    setEditingSession(null)
+    closeForm()
   }
 
-  function handleDelete(session: ChargingSession) {
-    if (window.confirm('Apagar este registo de carregamento?')) {
-      onDelete(session.id)
+  function handleSubmitFuel(values: NewFuelEntry) {
+    if (formState?.entry) {
+      onUpdateFuelEntry(formState.entry.id, values)
+    } else {
+      onAddFuelEntry(values)
+    }
+    closeForm()
+  }
+
+  function handleDelete(entry: VehicleEntry) {
+    const message =
+      entry.kind === 'electric'
+        ? 'Apagar este registo de carregamento?'
+        : 'Apagar este abastecimento?'
+    if (!window.confirm(message)) return
+    if (entry.kind === 'electric') {
+      onDeleteSession(entry.id)
+    } else {
+      onDeleteFuelEntry(entry.id)
     }
   }
 
@@ -92,6 +140,16 @@ export function CalendarScreen({
       ),
     [selectedDate, today],
   )
+
+  const modalTitle = formState
+    ? formState.kind === 'electric'
+      ? formState.entry
+        ? 'Editar carregamento'
+        : 'Novo carregamento'
+      : formState.entry
+        ? 'Editar abastecimento'
+        : 'Novo abastecimento'
+    : ''
 
   return (
     <div>
@@ -129,7 +187,9 @@ export function CalendarScreen({
           const outside = date.getMonth() !== monthCursor.getMonth()
           const isToday = key === dayKey(today)
           const isSelected = key === selectedDay
-          const hasSessions = sessionsByDay.has(key)
+          const dayEntries = entriesByDay.get(key) ?? []
+          const hasElectric = dayEntries.some((e) => e.kind === 'electric')
+          const hasFuel = dayEntries.some((e) => e.kind === 'fuel')
           const classNames = [
             styles.day,
             outside ? styles.outside : '',
@@ -149,55 +209,90 @@ export function CalendarScreen({
               aria-pressed={isSelected}
             >
               {date.getDate()}
-              {hasSessions && <span className={styles.dot} aria-hidden="true" />}
+              {(hasElectric || hasFuel) && (
+                <span className={styles.dots} aria-hidden="true">
+                  {hasElectric && <span className={styles.dot} />}
+                  {hasFuel && <span className={styles.dotFuel} />}
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
       <div className={styles.dayPanel}>
-        <div className="row-between">
-          <h3>
-            {capitalizeFirst(
-              new Intl.DateTimeFormat('pt-PT', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              }).format(selectedDate),
-            )}
-          </h3>
-          <button type="button" className="btn btn-primary" onClick={openAddForm}>
-            + Carregamento
+        <h3>
+          {capitalizeFirst(
+            new Intl.DateTimeFormat('pt-PT', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            }).format(selectedDate),
+          )}
+        </h3>
+
+        <div className="row" style={{ marginBottom: 14 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+            onClick={() => openAddForm('electric')}
+          >
+            ⚡ Carregamento
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+            onClick={() => openAddForm('fuel')}
+          >
+            ⛽ Abastecimento
           </button>
         </div>
 
-        {selectedSessions.length === 0 && <p className="muted">Sem carregamentos registados.</p>}
+        {selectedEntries.length === 0 && <p className="muted">Sem registos neste dia.</p>}
 
         <div className="stack">
-          {selectedSessions.map((session) => (
-            <div key={session.id} className={`card ${styles.sessionCard}`}>
+          {selectedEntries.map((entry) => (
+            <div key={entry.id} className={`card ${styles.sessionCard}`}>
               <div>
-                <div>
-                  <strong>{formatTime(session.startAt)}</strong> · {formatEnergy(session.energyKwh)}
-                </div>
-                <div className="muted">
-                  {session.cost != null ? formatCurrency(session.cost) : 'custo desconhecido'}
-                </div>
+                {entry.kind === 'electric' ? (
+                  <>
+                    <div>
+                      <strong>{formatTime(entry.startAt)}</strong> · ⚡{' '}
+                      {formatEnergy(entry.energyKwh)}
+                    </div>
+                    <div className="muted">
+                      {entry.cost != null ? formatCurrency(entry.cost) : 'custo desconhecido'}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <strong>{formatTime(entry.startAt)}</strong> · ⛽ {formatLiters(entry.liters)}
+                    </div>
+                    <div className="muted">{formatCurrency(entry.cost)}</div>
+                  </>
+                )}
               </div>
               <div className={styles.sessionActions}>
                 <button
                   type="button"
                   className={styles.iconBtn}
-                  aria-label="Editar carregamento"
-                  onClick={() => openEditForm(session)}
+                  aria-label={
+                    entry.kind === 'electric' ? 'Editar carregamento' : 'Editar abastecimento'
+                  }
+                  onClick={() => openEditForm(entry)}
                 >
                   ✎
                 </button>
                 <button
                   type="button"
                   className={styles.iconBtn}
-                  aria-label="Apagar carregamento"
-                  onClick={() => handleDelete(session)}
+                  aria-label={
+                    entry.kind === 'electric' ? 'Apagar carregamento' : 'Apagar abastecimento'
+                  }
+                  onClick={() => handleDelete(entry)}
                 >
                   🗑
                 </button>
@@ -207,26 +302,28 @@ export function CalendarScreen({
         </div>
       </div>
 
-      {formOpen && (
-        <Modal
-          title={editingSession ? 'Editar carregamento' : 'Novo carregamento'}
-          onClose={() => {
-            setFormOpen(false)
-            setEditingSession(null)
-          }}
-        >
-          <SessionForm
-            carId={carId}
-            tariffs={tariffs}
-            initialSession={editingSession ?? undefined}
-            defaultStartAt={formDefaultStartAt}
-            submitLabel={editingSession ? 'Guardar alterações' : 'Adicionar'}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setFormOpen(false)
-              setEditingSession(null)
-            }}
-          />
+      {formState && (
+        <Modal title={modalTitle} onClose={closeForm}>
+          {formState.kind === 'electric' ? (
+            <SessionForm
+              carId={carId}
+              tariffs={tariffs}
+              initialSession={(formState.entry as ChargingSession | null) ?? undefined}
+              defaultStartAt={formDefaultStartAt}
+              submitLabel={formState.entry ? 'Guardar alterações' : 'Adicionar'}
+              onSubmit={handleSubmitSession}
+              onCancel={closeForm}
+            />
+          ) : (
+            <FuelEntryForm
+              carId={carId}
+              initialEntry={(formState.entry as FuelEntry | null) ?? undefined}
+              defaultStartAt={formDefaultStartAt}
+              submitLabel={formState.entry ? 'Guardar alterações' : 'Adicionar'}
+              onSubmit={handleSubmitFuel}
+              onCancel={closeForm}
+            />
+          )}
         </Modal>
       )}
     </div>

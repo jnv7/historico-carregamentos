@@ -1,21 +1,25 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import type { CarSettings, ChargingSession } from '../../domain/types'
+import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
 import { createBackup, InvalidBackupError, parseBackup } from '../../storage/backup'
 import { downloadTextFile } from '../../utils/download'
 
 export interface BackupSectionProps {
   settings: CarSettings
   sessions: ChargingSession[]
+  fuelEntries: FuelEntry[]
   onSettingsChange: (settings: CarSettings) => void
   onRestoreSessions: (sessions: ChargingSession[]) => void
+  onRestoreFuelEntries: (fuelEntries: FuelEntry[]) => void
   onDeleteAll: () => void
 }
 
 export function BackupSection({
   settings,
   sessions,
+  fuelEntries,
   onSettingsChange,
   onRestoreSessions,
+  onRestoreFuelEntries,
   onDeleteAll,
 }: BackupSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -24,7 +28,7 @@ export function BackupSection({
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   function handleExport() {
-    const backup = createBackup(settings, sessions)
+    const backup = createBackup(settings, sessions, fuelEntries)
     const filename = `carregamentos-backup-${new Date().toISOString().slice(0, 10)}.json`
     downloadTextFile(filename, JSON.stringify(backup, null, 2))
     onSettingsChange({
@@ -49,6 +53,7 @@ export function BackupSection({
       const text = await file.text()
       const backup = parseBackup(text)
       onRestoreSessions(backup.sessions)
+      onRestoreFuelEntries(backup.fuelEntries)
       onSettingsChange(backup.settings)
       setImportSuccess(true)
     } catch (err) {
@@ -127,7 +132,10 @@ export function BackupSection({
         </button>
       ) : (
         <div className="card stack">
-          <p>Tens a certeza? Esta ação apaga todos os carregamentos e não pode ser desfeita.</p>
+          <p>
+            Tens a certeza? Esta ação apaga todos os carregamentos e abastecimentos e não pode ser
+            desfeita.
+          </p>
           <div className="row">
             <button
               type="button"

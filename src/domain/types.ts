@@ -28,6 +28,7 @@ export interface CarSettings {
 export interface ChargingSession {
   id: string
   carId: string
+  kind: 'electric'
   /** ISO datetime. The only fields that are always required are startAt and energyKwh. */
   startAt: string
   endAt: string | null
@@ -45,5 +46,25 @@ export interface ChargingSession {
   createdAt: string
   updatedAt: string
 }
+
+export interface FuelEntry {
+  id: string
+  carId: string
+  kind: 'fuel'
+  /** ISO datetime. Date, litres and cost are all required — there's no tariff to infer cost from. */
+  startAt: string
+  liters: number
+  cost: number
+  odometerKm: number | null
+  location: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type EntryKind = ChargingSession['kind'] | FuelEntry['kind']
+
+/** A charging session or a fuel fill-up — the two kinds of entries shown together on the calendar. */
+export type VehicleEntry = ChargingSession | FuelEntry
 
 export const DEFAULT_CAR_ID = 'default-car'

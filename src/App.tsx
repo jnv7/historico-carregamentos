@@ -7,6 +7,7 @@ import { LiveScreen } from './features/live/LiveScreen'
 import { ReminderBanner } from './features/settings/ReminderBanner'
 import { SettingsScreen } from './features/settings/SettingsScreen'
 import { StatsScreen } from './features/stats/StatsScreen'
+import { useFuelEntries } from './hooks/useFuelEntries'
 import { useSessions } from './hooks/useSessions'
 import { useSettings } from './hooks/useSettings'
 
@@ -21,12 +22,27 @@ export default function App() {
     deleteAllSessions,
     replaceAllSessions,
   } = useSessions()
+  const {
+    fuelEntries,
+    addFuelEntry,
+    updateFuelEntry,
+    deleteFuelEntry,
+    deleteAllFuelEntries,
+    replaceAllFuelEntries,
+  } = useFuelEntries()
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
+  const allEntries = useMemo(() => [...sessions, ...fuelEntries], [sessions, fuelEntries])
+
   const showReminder = useMemo(
-    () => !bannerDismissed && shouldShowBackupReminder(settings, sessions),
-    [bannerDismissed, settings, sessions],
+    () => !bannerDismissed && shouldShowBackupReminder(settings, allEntries),
+    [bannerDismissed, settings, allEntries],
   )
+
+  function handleDeleteAll() {
+    deleteAllSessions()
+    deleteAllFuelEntries()
+  }
 
   return (
     <>
@@ -46,9 +62,13 @@ export default function App() {
             carId={DEFAULT_CAR_ID}
             tariffs={settings.tariffs}
             sessions={sessions}
-            onAdd={addSession}
-            onUpdate={updateSession}
-            onDelete={deleteSession}
+            fuelEntries={fuelEntries}
+            onAddSession={addSession}
+            onUpdateSession={updateSession}
+            onDeleteSession={deleteSession}
+            onAddFuelEntry={addFuelEntry}
+            onUpdateFuelEntry={updateFuelEntry}
+            onDeleteFuelEntry={deleteFuelEntry}
           />
         )}
         {tab === 'live' && (
@@ -60,14 +80,16 @@ export default function App() {
             onUpdate={updateSession}
           />
         )}
-        {tab === 'stats' && <StatsScreen sessions={sessions} />}
+        {tab === 'stats' && <StatsScreen sessions={sessions} fuelEntries={fuelEntries} />}
         {tab === 'settings' && (
           <SettingsScreen
             settings={settings}
             sessions={sessions}
+            fuelEntries={fuelEntries}
             onSettingsChange={updateSettings}
             onRestoreSessions={replaceAllSessions}
-            onDeleteAll={deleteAllSessions}
+            onRestoreFuelEntries={replaceAllFuelEntries}
+            onDeleteAll={handleDeleteAll}
           />
         )}
       </main>

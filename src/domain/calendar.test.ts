@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKey, getMonthGrid, groupSessionsByDay } from './calendar'
+import { dayKey, getMonthGrid, groupByDay } from './calendar'
 import type { ChargingSession } from './types'
 
 describe('dayKey', () => {
@@ -37,6 +37,7 @@ function makeSession(startAt: string, id: string): ChargingSession {
   return {
     id,
     carId: 'default-car',
+    kind: 'electric',
     startAt,
     endAt: null,
     energyKwh: 10,
@@ -53,13 +54,13 @@ function makeSession(startAt: string, id: string): ChargingSession {
   }
 }
 
-describe('groupSessionsByDay', () => {
-  it('groups sessions that fall on the same local day', () => {
+describe('groupByDay', () => {
+  it('groups items that fall on the same local day', () => {
     const a = makeSession(new Date(2024, 0, 5, 9, 0).toISOString(), 'a')
     const b = makeSession(new Date(2024, 0, 5, 22, 0).toISOString(), 'b')
     const c = makeSession(new Date(2024, 0, 6, 9, 0).toISOString(), 'c')
 
-    const grouped = groupSessionsByDay([a, b, c])
+    const grouped = groupByDay([a, b, c])
 
     expect(grouped.get('2024-01-05')).toEqual([a, b])
     expect(grouped.get('2024-01-06')).toEqual([c])
