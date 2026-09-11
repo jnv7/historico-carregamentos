@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react'
-import { formatCurrency, formatEnergy, formatLiters } from '../../domain/format'
+import { filterByMonth } from '../../domain/calendar'
+import { capitalizeFirst, formatCurrency, formatEnergy, formatLiters } from '../../domain/format'
 import { computeCombinedStats, computeElectricStats, computeFuelStats } from '../../domain/stats'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
 
 type StatsFilter = 'all' | 'electric' | 'fuel'
+type Period = 'month' | 'total'
 
 const FILTERS: { id: StatsFilter; label: string }[] = [
-  { id: 'all', label: 'Total' },
+  { id: 'all', label: 'Ambos' },
   { id: 'electric', label: 'Elétrico' },
   { id: 'fuel', label: 'Combustível' },
 ]
+
+const monthLabelFormatter = new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric' })
 
 export interface StatsScreenProps {
   sessions: ChargingSession[]
@@ -18,19 +22,82 @@ export interface StatsScreenProps {
 
 export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
   const [filter, setFilter] = useState<StatsFilter>('all')
+  const [period, setPeriod] = useState<Period>('month')
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const today = new Date()
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
 
-  const electricStats = useMemo(() => computeElectricStats(sessions), [sessions])
-  const fuelStats = useMemo(() => computeFuelStats(fuelEntries), [fuelEntries])
-  const combinedStats = useMemo(
-    () => computeCombinedStats(sessions, fuelEntries),
-    [sessions, fuelEntries],
+  function goToMonth(offset: number) {
+    setPeriod('month')
+    setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
+  }
+
+  const periodSessions = useMemo(
+    () =>
+      period === 'total'
+        ? sessions
+        : filterByMonth(sessions, monthCursor.getFullYear(), monthCursor.getMonth()),
+    [sessions, period, monthCursor],
+  )
+  const periodFuelEntries = useMemo(
+    () =>
+      period === 'total'
+        ? fuelEntries
+        : filterByMonth(fuelEntries, monthCursor.getFullYear(), monthCursor.getMonth()),
+    [fuelEntries, period, monthCursor],
   )
 
-  const hasAnyData = sessions.length > 0 || fuelEntries.length > 0
+  const electricStats = useMemo(() => computeElectricStats(periodSessions), [periodSessions])
+  const fuelStats = useMemo(() => computeFuelStats(periodFuelEntries), [periodFuelEntries])
+  const combinedStats = useMemo(
+    () => computeCombinedStats(periodSessions, periodFuelEntries),
+    [periodSessions, periodFuelEntries],
+  )
+
+  const hasDataInPeriod = periodSessions.length > 0 || periodFuelEntries.length > 0
+  const emptyMessage = period === 'total' ? 'Ainda não há registos.' : 'Sem registos neste mês.'
 
   return (
     <div>
       <h2>Estatísticas</h2>
+
+      <div className="row" style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '8px 14px' }}
+          onClick={() => goToMonth(-1)}
+          aria-label="Mês anterior"
+        >
+          ‹
+        </button>
+        <div style={{ flex: 1, textAlign: 'center', fontWeight: 700 }}>
+          {period === 'total' ? 'Total' : capitalizeFirst(monthLabelFormatter.format(monthCursor))}
+        </div>
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '8px 14px' }}
+          onClick={() => goToMonth(1)}
+          aria-label="Mês seguinte"
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          className="btn"
+          aria-pressed={period === 'total'}
+          style={
+            period === 'total'
+              ? { background: 'var(--accent)', color: '#032027', borderColor: 'transparent' }
+              : undefined
+          }
+          onClick={() => setPeriod(period === 'total' ? 'month' : 'total')}
+        >
+          Total
+        </button>
+      </div>
 
       <div className="row" style={{ marginBottom: 16 }}>
         {FILTERS.map((f) => (
@@ -52,9 +119,9 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
         ))}
       </div>
 
-      {!hasAnyData && <p className="muted">Ainda não há registos.</p>}
+      {!hasDataInPeriod && <p className="muted">{emptyMessage}</p>}
 
-      {hasAnyData && filter === 'all' && (
+      {hasDataInPeriod && filter === 'all' && (
         <div className="stack">
           <div className="card">
             <div className="muted">Registos</div>
@@ -86,9 +153,9 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
         </div>
       )}
 
-      {hasAnyData && filter === 'electric' && (
+      {hasDataInPeriod && filter === 'electric' && (
         <div className="stack">
-          {electricStats.count === 0 && <p className="muted">Ainda não há carregamentos.</p>}
+          {electricStats.count === 0 && <p className="muted">Sem carregamentos neste período.</p>}
           {electricStats.count > 0 && (
             <>
               <div className="card">
@@ -145,9 +212,9 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
         </div>
       )}
 
-      {hasAnyData && filter === 'fuel' && (
+      {hasDataInPeriod && filter === 'fuel' && (
         <div className="stack">
-          {fuelStats.count === 0 && <p className="muted">Ainda não há abastecimentos.</p>}
+          {fuelStats.count === 0 && <p className="muted">Sem abastecimentos neste período.</p>}
           {fuelStats.count > 0 && (
             <>
               <div className="card">

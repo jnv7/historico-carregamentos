@@ -71,6 +71,7 @@ h3 {
   flex-direction: column;
   gap: 4px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .field label {
@@ -81,6 +82,8 @@ h3 {
 .field input,
 .field select,
 .field textarea {
+  width: 100%;
+  min-width: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -135,6 +138,10 @@ h3 {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.row > * {
+  min-width: 0;
 }
 
 .row-between {

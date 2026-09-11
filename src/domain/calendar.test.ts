@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKey, getMonthGrid, groupByDay } from './calendar'
+import { dayKey, filterByMonth, getMonthGrid, groupByDay } from './calendar'
 import type { ChargingSession } from './types'
 
 describe('dayKey', () => {
@@ -53,6 +53,16 @@ function makeSession(startAt: string, id: string): ChargingSession {
     updatedAt: startAt,
   }
 }
+
+describe('filterByMonth', () => {
+  it('keeps only items whose startAt falls in the given month', () => {
+    const jan = makeSession(new Date(2024, 0, 15).toISOString(), 'jan')
+    const feb = makeSession(new Date(2024, 1, 1).toISOString(), 'feb')
+    const nextYearJan = makeSession(new Date(2025, 0, 15).toISOString(), 'next-year-jan')
+
+    expect(filterByMonth([jan, feb, nextYearJan], 2024, 0)).toEqual([jan])
+  })
+})
 
 describe('groupByDay', () => {
   it('groups items that fall on the same local day', () => {

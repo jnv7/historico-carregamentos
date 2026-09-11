@@ -32,6 +32,18 @@ export function getMonthGrid(year: number, month: number): Date[][] {
   return weeks
 }
 
+/** Keeps only the items whose local startAt date falls within the given month (0-indexed). */
+export function filterByMonth<T extends { startAt: string }>(
+  items: T[],
+  year: number,
+  month: number,
+): T[] {
+  return items.filter((item) => {
+    const date = new Date(item.startAt)
+    return date.getFullYear() === year && date.getMonth() === month
+  })
+}
+
 /** Groups any dated items (charging sessions, fuel entries, ...) by their local calendar day. */
 export function groupByDay<T extends { startAt: string }>(items: T[]): Map<string, T[]> {
   const map = new Map<string, T[]>()

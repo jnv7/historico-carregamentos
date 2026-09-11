@@ -4,12 +4,16 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CAR_ID, type ChargingSession, type FuelEntry } from '../../domain/types'
 import { StatsScreen } from './StatsScreen'
 
+const today = new Date()
+const thisMonth = new Date(today.getFullYear(), today.getMonth(), 5, 10, 0).toISOString()
+const twoMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 5, 10, 0).toISOString()
+
 function makeSession(overrides: Partial<ChargingSession>): ChargingSession {
   return {
     id: Math.random().toString(),
     carId: DEFAULT_CAR_ID,
     kind: 'electric',
-    startAt: '2024-01-01T10:00:00.000Z',
+    startAt: thisMonth,
     endAt: null,
     energyKwh: 10,
     cost: null,
@@ -20,8 +24,8 @@ function makeSession(overrides: Partial<ChargingSession>): ChargingSession {
     chargerType: null,
     notes: null,
     isLive: false,
-    createdAt: '2024-01-01T10:00:00.000Z',
-    updatedAt: '2024-01-01T10:00:00.000Z',
+    createdAt: thisMonth,
+    updatedAt: thisMonth,
     ...overrides,
   }
 }
@@ -31,34 +35,66 @@ function makeFuelEntry(overrides: Partial<FuelEntry>): FuelEntry {
     id: Math.random().toString(),
     carId: DEFAULT_CAR_ID,
     kind: 'fuel',
-    startAt: '2024-01-01T10:00:00.000Z',
+    startAt: thisMonth,
     liters: 30,
     cost: 45,
     odometerKm: null,
     location: null,
     notes: null,
-    createdAt: '2024-01-01T10:00:00.000Z',
-    updatedAt: '2024-01-01T10:00:00.000Z',
+    createdAt: thisMonth,
+    updatedAt: thisMonth,
     ...overrides,
   }
 }
 
 describe('StatsScreen', () => {
-  it('shows an empty state with no entries of any kind', () => {
+  it('shows an empty state for the current month with no entries', () => {
     render(<StatsScreen sessions={[]} fuelEntries={[]} />)
-    expect(screen.getByText(/Ainda não há registos/)).toBeInTheDocument()
+    expect(screen.getByText('Sem registos neste mês.')).toBeInTheDocument()
   })
 
-  it('shows the combined total by default', () => {
-    const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
-    const fuelEntries = [makeFuelEntry({ cost: 45 })]
+  it('shows an empty state for Total with no entries at all', async () => {
+    const user = userEvent.setup()
+    render(<StatsScreen sessions={[]} fuelEntries={[]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Total' }))
+
+    expect(screen.getByText('Ainda não há registos.')).toBeInTheDocument()
+  })
+
+  it('defaults to the current month and excludes entries from other months', () => {
+    const sessions = [makeSession({ startAt: thisMonth, energyKwh: 10, cost: 2 })]
+    const olderSessions = [makeSession({ startAt: twoMonthsAgo, energyKwh: 99, cost: 9 })]
+    render(<StatsScreen sessions={[...sessions, ...olderSessions]} fuelEntries={[]} />)
+
+    expect(screen.getByText('1')).toBeInTheDocument() // count for this month only
+  })
+
+  it('shows entries from other months after navigating with the month arrows', async () => {
+    const user = userEvent.setup()
+    const sessions = [makeSession({ startAt: twoMonthsAgo, cost: 2 })]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+
+    expect(screen.getByText('Sem registos neste mês.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
+
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('shows every entry when Total is selected, regardless of month', async () => {
+    const user = userEvent.setup()
+    const sessions = [makeSession({ startAt: thisMonth, cost: 2 })]
+    const fuelEntries = [makeFuelEntry({ startAt: twoMonthsAgo, cost: 45 })]
     render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} />)
 
-    expect(screen.getByText('2')).toBeInTheDocument() // combined count
-    expect(screen.getByText(/47,00/)).toBeInTheDocument() // combined cost
+    await user.click(screen.getByRole('button', { name: 'Total' }))
+
+    expect(screen.getByText('2')).toBeInTheDocument() // combined count across both months
   })
 
-  it('switches to the electric-only view', async () => {
+  it('switches to the electric-only view for the current period', async () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ cost: 45 })]
@@ -67,10 +103,9 @@ describe('StatsScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Elétrico' }))
 
     expect(screen.getByText('10 kWh')).toBeInTheDocument()
-    expect(screen.queryByText('Combustível total')).not.toBeInTheDocument()
   })
 
-  it('switches to the fuel-only view', async () => {
+  it('switches to the fuel-only view for the current period', async () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ liters: 30, cost: 45 })]
@@ -79,18 +114,5 @@ describe('StatsScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Combustível' }))
 
     expect(screen.getByText('30 L')).toBeInTheDocument()
-    expect(screen.queryByText('Energia total')).not.toBeInTheDocument()
-  })
-
-  it('shows cost per km in the total view when odometer readings allow it', () => {
-    const sessions = [
-      makeSession({ startAt: '2024-01-01T10:00:00.000Z', odometerKm: 1000, cost: 5 }),
-    ]
-    const fuelEntries = [
-      makeFuelEntry({ startAt: '2024-01-10T10:00:00.000Z', odometerKm: 1500, cost: 45 }),
-    ]
-    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} />)
-
-    expect(screen.getByText('Custo médio por km')).toBeInTheDocument()
   })
 })

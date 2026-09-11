@@ -46,8 +46,8 @@ describe('App', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: /⛽ Abastecimento/ }))
-    await user.type(screen.getByLabelText(/Litros/), '40')
-    await user.type(screen.getByLabelText(/Custo/), '60')
+    await user.type(screen.getByLabelText('Litros'), '40')
+    await user.type(screen.getByLabelText('Total (€)'), '60')
     await user.click(screen.getByRole('button', { name: 'Adicionar' }))
 
     await user.click(screen.getByRole('button', { name: /Estatísticas/ }))

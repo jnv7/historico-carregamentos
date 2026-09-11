@@ -52,6 +52,20 @@ describe('TariffEditor', () => {
     expect(lastCall[0].pricePerKwh).toBe(0.15)
   })
 
+  it('shows a blank price field for a freshly added tariff, not a literal 0 to type after', async () => {
+    const user = userEvent.setup()
+    const tariffs: Tariff[] = [
+      { id: '1', label: 'Tarifa 1', pricePerKwh: 0, ranges: [{ start: '00:00', end: '23:59' }] },
+    ]
+    render(<TariffEditor tariffs={tariffs} onChange={() => {}} />)
+
+    const priceInput = screen.getByLabelText('€/kWh')
+    expect(priceInput).toHaveValue(null)
+
+    await user.type(priceInput, '0.1521')
+    expect(priceInput).toHaveValue(0.1521)
+  })
+
   it('removes a tariff', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

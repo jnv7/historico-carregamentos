@@ -120,8 +120,8 @@ describe('CalendarScreen', () => {
 
     await user.click(screen.getByRole('button', { name: /⛽ Abastecimento/ }))
     const dialog = screen.getByRole('dialog', { name: 'Novo abastecimento' })
-    await user.type(within(dialog).getByLabelText(/Litros/), '40')
-    await user.type(within(dialog).getByLabelText(/Custo/), '60')
+    await user.type(within(dialog).getByLabelText('Litros'), '40')
+    await user.type(within(dialog).getByLabelText('Total (€)'), '60')
     await user.click(within(dialog).getByRole('button', { name: 'Adicionar' }))
 
     expect(onAddFuelEntry).toHaveBeenCalledTimes(1)

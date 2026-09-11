@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { DateTimeFields } from '../../components/DateTimeFields'
 import { combineDateAndTime, toDateInputValue, toTimeInputValue } from '../../domain/datetime'
+import { deriveFuelField, type FuelField, type FuelFieldsInput } from '../../domain/fuelCalc'
 import type { FuelEntry } from '../../domain/types'
 import type { NewFuelEntry } from '../../hooks/useFuelEntries'
 
@@ -11,6 +12,19 @@ export interface FuelEntryFormProps {
   submitLabel?: string
   onSubmit: (values: NewFuelEntry) => void
   onCancel: () => void
+}
+
+function initialFields(initialEntry?: FuelEntry): FuelFieldsInput {
+  if (!initialEntry) return { liters: '', pricePerLiter: '', cost: '' }
+  const pricePerLiter =
+    initialEntry.liters > 0
+      ? String(Math.round((initialEntry.cost / initialEntry.liters) * 1000) / 1000)
+      : ''
+  return {
+    liters: String(initialEntry.liters),
+    pricePerLiter,
+    cost: String(initialEntry.cost),
+  }
 }
 
 export function FuelEntryForm({
@@ -25,8 +39,12 @@ export function FuelEntryForm({
 
   const [dateValue, setDateValue] = useState(toDateInputValue(startAtDate))
   const [timeValue, setTimeValue] = useState(toTimeInputValue(startAtDate))
-  const [liters, setLiters] = useState(initialEntry ? String(initialEntry.liters) : '')
-  const [cost, setCost] = useState(initialEntry ? String(initialEntry.cost) : '')
+  const [fields, setFields] = useState<FuelFieldsInput>(() => initialFields(initialEntry))
+  // Seeded to the two "real" stored fields in edit mode, so the first edit already knows
+  // which field to derive; empty in add mode, until the user has touched two fields.
+  const [editOrder, setEditOrder] = useState<FuelField[]>(() =>
+    initialEntry ? ['liters', 'cost'] : [],
+  )
   const [odometerKm, setOdometerKm] = useState(
     initialEntry?.odometerKm != null ? String(initialEntry.odometerKm) : '',
   )
@@ -34,23 +52,29 @@ export function FuelEntryForm({
   const [notes, setNotes] = useState(initialEntry?.notes ?? '')
   const [error, setError] = useState<string | null>(null)
 
+  function handleFieldChange(field: FuelField, value: string) {
+    const newOrder = [...editOrder.filter((f) => f !== field), field]
+    setEditOrder(newOrder)
+    setFields((prev) => deriveFuelField({ ...prev, [field]: value }, newOrder))
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
 
-    const litersValue = Number(liters)
-    const costValue = Number(cost)
+    const litersValue = Number(fields.liters)
+    const costValue = Number(fields.cost)
 
     if (!dateValue) {
       setError('A data é obrigatória.')
       return
     }
-    if (!liters || Number.isNaN(litersValue) || litersValue <= 0) {
-      setError('Indica os litros abastecidos.')
+    if (!fields.liters || Number.isNaN(litersValue) || litersValue <= 0) {
+      setError('Indica os litros abastecidos (ou o preço por litro e o total, para calcular).')
       return
     }
-    if (!cost || Number.isNaN(costValue) || costValue <= 0) {
-      setError('Indica o custo do abastecimento.')
+    if (!fields.cost || Number.isNaN(costValue) || costValue <= 0) {
+      setError('Indica o custo total (ou os litros e o preço por litro, para calcular).')
       return
     }
 
@@ -78,29 +102,45 @@ export function FuelEntryForm({
         onTimeChange={setTimeValue}
       />
 
+      <p className="muted" style={{ margin: '-6px 0 0' }}>
+        Preenche 2 destes 3 campos — calculamos o terceiro.
+      </p>
+
       <div className="row">
         <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="fuel-liters">Litros *</label>
+          <label htmlFor="fuel-liters">Litros</label>
           <input
             id="fuel-liters"
             type="number"
             inputMode="decimal"
             min="0"
             step="0.01"
-            value={liters}
-            onChange={(e) => setLiters(e.target.value)}
+            value={fields.liters}
+            onChange={(e) => handleFieldChange('liters', e.target.value)}
           />
         </div>
         <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="fuel-cost">Custo (€) *</label>
+          <label htmlFor="fuel-price-per-liter">€/L</label>
+          <input
+            id="fuel-price-per-liter"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.001"
+            value={fields.pricePerLiter}
+            onChange={(e) => handleFieldChange('pricePerLiter', e.target.value)}
+          />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label htmlFor="fuel-cost">Total (€)</label>
           <input
             id="fuel-cost"
             type="number"
             inputMode="decimal"
             min="0"
             step="0.01"
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
+            value={fields.cost}
+            onChange={(e) => handleFieldChange('cost', e.target.value)}
           />
         </div>
       </div>
