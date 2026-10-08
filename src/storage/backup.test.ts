@@ -41,4 +41,22 @@ describe('backup', () => {
 
     expect(parsed.fuelEntries).toEqual([])
   })
+
+  it('fills in settings missing from older backups', () => {
+    const legacyBackup = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      settings: {
+        carName: 'Antigo',
+        tariffs: [],
+        backupReminder: { enabled: false, intervalDays: 30, lastBackupAt: null },
+      },
+      sessions: [],
+      fuelEntries: [],
+    }
+
+    const parsed = parseBackup(JSON.stringify(legacyBackup))
+
+    expect(parsed.settings.backupReminder.askBeforeUpdate).toBe(true)
+  })
 })

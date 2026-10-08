@@ -15,12 +15,35 @@ describe('settingsRepository', () => {
     const settings: CarSettings = {
       carName: 'Tesla Model 3',
       tariffs: [],
-      backupReminder: { enabled: true, intervalDays: 14, lastBackupAt: null },
+      backupReminder: {
+        enabled: true,
+        intervalDays: 14,
+        lastBackupAt: null,
+        askBeforeUpdate: false,
+      },
     }
 
     saveSettings(settings)
 
     expect(loadSettings()).toEqual(settings)
+  })
+
+  it('fills in settings added after the data was first saved', () => {
+    localStorage.setItem(
+      'historico-carregamentos:settings',
+      JSON.stringify({
+        carName: 'Antigo',
+        tariffs: [],
+        backupReminder: { enabled: true, intervalDays: 7, lastBackupAt: null },
+      }),
+    )
+
+    expect(loadSettings().backupReminder).toEqual({
+      enabled: true,
+      intervalDays: 7,
+      lastBackupAt: null,
+      askBeforeUpdate: true,
+    })
   })
 
   it('falls back to defaults when stored data is corrupted', () => {

@@ -1,6 +1,7 @@
 import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
 import { AppUpdateSection } from './AppUpdateSection'
 import { BackupSection } from './BackupSection'
+import { DangerZoneSection } from './DangerZoneSection'
 import { TariffEditor } from './TariffEditor'
 
 export interface SettingsScreenProps {
@@ -48,10 +49,16 @@ export function SettingsScreen({
         onSettingsChange={onSettingsChange}
         onRestoreSessions={onRestoreSessions}
         onRestoreFuelEntries={onRestoreFuelEntries}
-        onDeleteAll={onDeleteAll}
       />
 
-      <AppUpdateSection />
+      <AppUpdateSection
+        settings={settings}
+        sessions={sessions}
+        fuelEntries={fuelEntries}
+        onSettingsChange={onSettingsChange}
+      />
+
+      <DangerZoneSection onDeleteAll={onDeleteAll} />
     </div>
   )
 }

@@ -12,7 +12,12 @@ describe('shouldShowBackupReminder', () => {
   it('is false when reminders are disabled', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
-      backupReminder: { enabled: false, intervalDays: 1, lastBackupAt: null },
+      backupReminder: {
+        enabled: false,
+        intervalDays: 1,
+        lastBackupAt: null,
+        askBeforeUpdate: true,
+      },
     }
     expect(shouldShowBackupReminder(settings, [makeEntry('2024-01-01T00:00:00.000Z')], now)).toBe(
       false,
@@ -22,7 +27,7 @@ describe('shouldShowBackupReminder', () => {
   it('is false when there are no entries and no prior backup', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
-      backupReminder: { enabled: true, intervalDays: 1, lastBackupAt: null },
+      backupReminder: { enabled: true, intervalDays: 1, lastBackupAt: null, askBeforeUpdate: true },
     }
     expect(shouldShowBackupReminder(settings, [], now)).toBe(false)
   })
@@ -30,7 +35,12 @@ describe('shouldShowBackupReminder', () => {
   it('is true when enough days passed since the oldest entry and no backup was ever made', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
-      backupReminder: { enabled: true, intervalDays: 30, lastBackupAt: null },
+      backupReminder: {
+        enabled: true,
+        intervalDays: 30,
+        lastBackupAt: null,
+        askBeforeUpdate: true,
+      },
     }
     const entries = [makeEntry('2024-01-01T00:00:00.000Z')]
     expect(shouldShowBackupReminder(settings, entries, now)).toBe(true)
@@ -39,7 +49,12 @@ describe('shouldShowBackupReminder', () => {
   it('is false when not enough days passed since the oldest entry', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
-      backupReminder: { enabled: true, intervalDays: 60, lastBackupAt: null },
+      backupReminder: {
+        enabled: true,
+        intervalDays: 60,
+        lastBackupAt: null,
+        askBeforeUpdate: true,
+      },
     }
     const entries = [makeEntry('2024-01-01T00:00:00.000Z')]
     expect(shouldShowBackupReminder(settings, entries, now)).toBe(false)
@@ -48,7 +63,12 @@ describe('shouldShowBackupReminder', () => {
   it('uses lastBackupAt as the reference once a backup has been made', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
-      backupReminder: { enabled: true, intervalDays: 10, lastBackupAt: '2024-01-30T00:00:00.000Z' },
+      backupReminder: {
+        enabled: true,
+        intervalDays: 10,
+        lastBackupAt: '2024-01-30T00:00:00.000Z',
+        askBeforeUpdate: true,
+      },
     }
     const entries = [makeEntry('2023-01-01T00:00:00.000Z')]
     expect(shouldShowBackupReminder(settings, entries, now)).toBe(false)

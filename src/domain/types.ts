@@ -17,6 +17,8 @@ export interface BackupReminderSettings {
   enabled: boolean
   intervalDays: number
   lastBackupAt: string | null
+  /** Offer to export a backup before reloading the app for an update. */
+  askBeforeUpdate: boolean
 }
 
 export interface CarSettings {

@@ -1,4 +1,5 @@
 import type { CarSettings, ChargingSession, FuelEntry } from '../domain/types'
+import { withSettingsDefaults } from './settingsRepository'
 
 export const BACKUP_VERSION = 2
 
@@ -39,7 +40,11 @@ export function parseBackup(raw: string): BackupFile {
   }
 
   // Backups from before fuel entries existed (version 1) simply have none.
-  return { ...data, fuelEntries: data.fuelEntries ?? [] }
+  return {
+    ...data,
+    settings: withSettingsDefaults(data.settings),
+    fuelEntries: data.fuelEntries ?? [],
+  }
 }
 
 function isBackupFile(data: unknown): data is BackupFile & { fuelEntries?: FuelEntry[] } {

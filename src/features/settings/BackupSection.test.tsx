@@ -15,7 +15,6 @@ function renderBackupSection(overrides: Partial<BackupSectionProps> = {}) {
   const onSettingsChange = vi.fn()
   const onRestoreSessions = vi.fn()
   const onRestoreFuelEntries = vi.fn()
-  const onDeleteAll = vi.fn()
 
   render(
     <BackupSection
@@ -25,12 +24,11 @@ function renderBackupSection(overrides: Partial<BackupSectionProps> = {}) {
       onSettingsChange={onSettingsChange}
       onRestoreSessions={onRestoreSessions}
       onRestoreFuelEntries={onRestoreFuelEntries}
-      onDeleteAll={onDeleteAll}
       {...overrides}
     />,
   )
 
-  return { onSettingsChange, onRestoreSessions, onRestoreFuelEntries, onDeleteAll }
+  return { onSettingsChange, onRestoreSessions, onRestoreFuelEntries }
 }
 
 describe('BackupSection', () => {
@@ -87,16 +85,5 @@ describe('BackupSection', () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       expect.objectContaining({ backupReminder: expect.objectContaining({ enabled: true }) }),
     )
-  })
-
-  it('requires a confirmation step before deleting all data', async () => {
-    const user = userEvent.setup()
-    const { onDeleteAll } = renderBackupSection()
-
-    await user.click(screen.getByRole('button', { name: 'Apagar todos os dados' }))
-    expect(onDeleteAll).not.toHaveBeenCalled()
-
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
-    expect(onDeleteAll).toHaveBeenCalledTimes(1)
   })
 })

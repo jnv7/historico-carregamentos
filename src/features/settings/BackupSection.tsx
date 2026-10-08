@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
-import { createBackup, InvalidBackupError, parseBackup } from '../../storage/backup'
-import { downloadTextFile } from '../../utils/download'
+import { InvalidBackupError, parseBackup } from '../../storage/backup'
+import { exportBackup } from './exportBackup'
 
 export interface BackupSectionProps {
   settings: CarSettings
@@ -10,7 +10,6 @@ export interface BackupSectionProps {
   onSettingsChange: (settings: CarSettings) => void
   onRestoreSessions: (sessions: ChargingSession[]) => void
   onRestoreFuelEntries: (fuelEntries: FuelEntry[]) => void
-  onDeleteAll: () => void
 }
 
 export function BackupSection({
@@ -20,21 +19,13 @@ export function BackupSection({
   onSettingsChange,
   onRestoreSessions,
   onRestoreFuelEntries,
-  onDeleteAll,
 }: BackupSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   function handleExport() {
-    const backup = createBackup(settings, sessions, fuelEntries)
-    const filename = `carregamentos-backup-${new Date().toISOString().slice(0, 10)}.json`
-    downloadTextFile(filename, JSON.stringify(backup, null, 2))
-    onSettingsChange({
-      ...settings,
-      backupReminder: { ...settings.backupReminder, lastBackupAt: new Date().toISOString() },
-    })
+    onSettingsChange(exportBackup(settings, sessions, fuelEntries))
   }
 
   function handleImportClick() {
@@ -65,11 +56,6 @@ export function BackupSection({
 
   function updateReminder(changes: Partial<CarSettings['backupReminder']>) {
     onSettingsChange({ ...settings, backupReminder: { ...settings.backupReminder, ...changes } })
-  }
-
-  function handleDeleteAll() {
-    onDeleteAll()
-    setConfirmingDelete(false)
   }
 
   return (
@@ -125,37 +111,14 @@ export function BackupSection({
         </div>
       )}
 
-      <h3 style={{ marginTop: 20 }}>Zona perigosa</h3>
-      {!confirmingDelete ? (
-        <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>
-          Apagar todos os dados
-        </button>
-      ) : (
-        <div className="card stack">
-          <p>
-            Tens a certeza? Esta ação apaga todos os carregamentos e abastecimentos e não pode ser
-            desfeita.
-          </p>
-          <div className="row">
-            <button
-              type="button"
-              className="btn"
-              style={{ flex: 1 }}
-              onClick={() => setConfirmingDelete(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              style={{ flex: 1 }}
-              onClick={handleDeleteAll}
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      )}
+      <label className="row">
+        <input
+          type="checkbox"
+          checked={settings.backupReminder.askBeforeUpdate}
+          onChange={(e) => updateReminder({ askBeforeUpdate: e.target.checked })}
+        />
+        Perguntar se quero fazer backup antes de atualizar a app
+      </label>
     </div>
   )
 }
