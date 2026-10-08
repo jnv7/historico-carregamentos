@@ -1,4 +1,5 @@
 import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
+import { AppUpdateSection } from './AppUpdateSection'
 import { BackupSection } from './BackupSection'
 import { TariffEditor } from './TariffEditor'
 
@@ -49,6 +50,8 @@ export function SettingsScreen({
         onRestoreFuelEntries={onRestoreFuelEntries}
         onDeleteAll={onDeleteAll}
       />
+
+      <AppUpdateSection />
     </div>
   )
 }

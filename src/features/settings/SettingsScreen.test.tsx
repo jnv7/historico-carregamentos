@@ -28,7 +28,7 @@ describe('SettingsScreen', () => {
     )
   })
 
-  it('renders the tariff editor and backup section', () => {
+  it('renders the tariff editor, backup and app update sections', () => {
     render(
       <SettingsScreen
         settings={DEFAULT_SETTINGS}
@@ -43,5 +43,8 @@ describe('SettingsScreen', () => {
 
     expect(screen.getByText('Tarifas')).toBeInTheDocument()
     expect(screen.getByText('Cópia de segurança')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Procurar atualizações e recarregar' }),
+    ).toBeInTheDocument()
   })
 })
