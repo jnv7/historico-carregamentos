@@ -115,4 +115,43 @@ describe('StatsScreen', () => {
 
     expect(screen.getByText('30 L')).toBeInTheDocument()
   })
+
+  it('shows the monthly evolution charts under the summary', () => {
+    const sessions = [makeSession({ cost: 2 })]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+
+    expect(screen.getByRole('img', { name: /Custo por mês/ })).toBeInTheDocument()
+  })
+
+  it('shows the efficiency of each charge in the per-entry view', async () => {
+    const user = userEvent.setup()
+    const day = (d: number) => new Date(today.getFullYear(), today.getMonth(), d, 10).toISOString()
+    const sessions = [
+      makeSession({ startAt: day(1), odometerKm: 1000 }),
+      makeSession({ startAt: day(3), odometerKm: 1100, energyKwh: 15, cost: 3 }),
+      makeSession({ startAt: day(5), odometerKm: 1300, energyKwh: 34, cost: 5 }),
+    ]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Por registo' }))
+    await user.click(screen.getByRole('button', { name: 'Elétrico' }))
+
+    expect(screen.getByText('Consumo médio')).toBeInTheDocument()
+    // (15 + 34) kWh over 300 km
+    expect(screen.getAllByText('16,3 kWh/100 km').length).toBeGreaterThan(0)
+    // the latest charge is selected and compared with the average
+    expect(
+      screen.getByText(/200 km desde a leitura anterior · 4% acima da média/),
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('row')).toHaveLength(3) // header + 2 measurements
+  })
+
+  it('explains how to get per-entry efficiency when there are no odometer readings', async () => {
+    const user = userEvent.setup()
+    render(<StatsScreen sessions={[makeSession({})]} fuelEntries={[]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Por registo' }))
+
+    expect(screen.getByText(/regista os km do conta-quilómetros/)).toBeInTheDocument()
+  })
 })

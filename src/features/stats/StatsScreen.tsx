@@ -3,9 +3,16 @@ import { filterByMonth } from '../../domain/calendar'
 import { capitalizeFirst, formatCurrency, formatEnergy, formatLiters } from '../../domain/format'
 import { computeCombinedStats, computeElectricStats, computeFuelStats } from '../../domain/stats'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
+import { EntryEfficiencyView } from './EntryEfficiencyView'
+import { MonthlyCharts } from './MonthlyCharts'
+import { SELECTED_BUTTON_STYLE, type Period, type StatsFilter } from './statsShared'
 
-type StatsFilter = 'all' | 'electric' | 'fuel'
-type Period = 'month' | 'total'
+type StatsView = 'summary' | 'entries'
+
+const VIEWS: { id: StatsView; label: string }[] = [
+  { id: 'summary', label: 'Resumo' },
+  { id: 'entries', label: 'Por registo' },
+]
 
 const FILTERS: { id: StatsFilter; label: string }[] = [
   { id: 'all', label: 'Ambos' },
@@ -21,6 +28,7 @@ export interface StatsScreenProps {
 }
 
 export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
+  const [view, setView] = useState<StatsView>('summary')
   const [filter, setFilter] = useState<StatsFilter>('all')
   const [period, setPeriod] = useState<Period>('month')
   const [monthCursor, setMonthCursor] = useState(() => {
@@ -62,6 +70,21 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
     <div>
       <h2>Estatísticas</h2>
 
+      <div className="row" role="group" aria-label="Vista" style={{ marginBottom: 12 }}>
+        {VIEWS.map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            className="btn"
+            style={{ flex: 1, ...(view === v.id ? SELECTED_BUTTON_STYLE : {}) }}
+            aria-pressed={view === v.id}
+            onClick={() => setView(v.id)}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           type="button"
@@ -88,11 +111,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
           type="button"
           className="btn"
           aria-pressed={period === 'total'}
-          style={
-            period === 'total'
-              ? { background: 'var(--accent)', color: '#032027', borderColor: 'transparent' }
-              : undefined
-          }
+          style={period === 'total' ? SELECTED_BUTTON_STYLE : undefined}
           onClick={() => setPeriod(period === 'total' ? 'month' : 'total')}
         >
           Total
@@ -107,9 +126,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
             className="btn"
             style={{
               flex: 1,
-              ...(filter === f.id
-                ? { background: 'var(--accent)', color: '#032027', borderColor: 'transparent' }
-                : {}),
+              ...(filter === f.id ? SELECTED_BUTTON_STYLE : {}),
             }}
             aria-pressed={filter === f.id}
             onClick={() => setFilter(f.id)}
@@ -121,7 +138,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
 
       {!hasDataInPeriod && <p className="muted">{emptyMessage}</p>}
 
-      {hasDataInPeriod && filter === 'all' && (
+      {hasDataInPeriod && view === 'summary' && filter === 'all' && (
         <div className="stack">
           <div className="card">
             <div className="muted">Registos</div>
@@ -153,7 +170,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
         </div>
       )}
 
-      {hasDataInPeriod && filter === 'electric' && (
+      {hasDataInPeriod && view === 'summary' && filter === 'electric' && (
         <div className="stack">
           {electricStats.count === 0 && <p className="muted">Sem carregamentos neste período.</p>}
           {electricStats.count > 0 && (
@@ -212,7 +229,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
         </div>
       )}
 
-      {hasDataInPeriod && filter === 'fuel' && (
+      {hasDataInPeriod && view === 'summary' && filter === 'fuel' && (
         <div className="stack">
           {fuelStats.count === 0 && <p className="muted">Sem abastecimentos neste período.</p>}
           {fuelStats.count > 0 && (
@@ -247,6 +264,26 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
             </>
           )}
         </div>
+      )}
+
+      {hasDataInPeriod && view === 'summary' && (
+        <MonthlyCharts
+          sessions={sessions}
+          fuelEntries={fuelEntries}
+          filter={filter}
+          period={period}
+          monthCursor={monthCursor}
+        />
+      )}
+
+      {hasDataInPeriod && view === 'entries' && (
+        <EntryEfficiencyView
+          sessions={sessions}
+          fuelEntries={fuelEntries}
+          filter={filter}
+          period={period}
+          monthCursor={monthCursor}
+        />
       )}
     </div>
   )

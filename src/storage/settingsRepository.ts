@@ -14,9 +14,13 @@ export const DEFAULT_SETTINGS: CarSettings = {
 }
 
 export function loadSettings(): CarSettings {
-  return readJson(KEY, DEFAULT_SETTINGS)
+  return readJson(KEY, DEFAULT_SETTINGS, isObject)
 }
 
 export function saveSettings(settings: CarSettings): void {
   writeJson(KEY, settings)
+}
+
+function isObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

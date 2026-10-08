@@ -4,7 +4,9 @@ import {
   formatCurrency,
   formatDuration,
   formatEnergy,
+  formatConsumption,
   formatLiters,
+  formatUnitPrice,
 } from './format'
 
 describe('formatCurrency', () => {
@@ -49,5 +51,17 @@ describe('formatDuration', () => {
 
   it('clamps negative durations to zero', () => {
     expect(formatDuration(-1000)).toBe('0m')
+  })
+})
+
+describe('efficiency formatting', () => {
+  it('formats unit prices with up to 3 decimals', () => {
+    expect(formatUnitPrice(0.1534, 'kWh')).toBe('0,153 €/kWh')
+    expect(formatUnitPrice(1.8, 'L')).toBe('1,80 €/L')
+  })
+
+  it('formats consumption per 100 km with 1 decimal', () => {
+    expect(formatConsumption(15.24, 'kWh')).toBe('15,2 kWh/100 km')
+    expect(formatConsumption(6, 'L')).toBe('6 L/100 km')
   })
 })

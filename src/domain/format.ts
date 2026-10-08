@@ -51,3 +51,17 @@ export function formatDuration(ms: number): string {
   if (hours === 0) return `${minutes}m`
   return `${hours}h ${minutes}m`
 }
+
+export function formatDecimal(value: number, maximumFractionDigits = 1): string {
+  return value.toLocaleString('pt-PT', { maximumFractionDigits })
+}
+
+/** A unit price with enough precision for tariffs, e.g. "0,153 €/kWh". */
+export function formatUnitPrice(value: number, unit: 'kWh' | 'L'): string {
+  return `${value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} €/${unit}`
+}
+
+/** Consumption per 100 km, e.g. "15,2 kWh/100 km". */
+export function formatConsumption(value: number, unit: 'kWh' | 'L'): string {
+  return `${formatDecimal(value)} ${unit}/100 km`
+}

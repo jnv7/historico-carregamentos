@@ -6,10 +6,12 @@ import { CalendarScreen } from './features/sessions/CalendarScreen'
 import { LiveScreen } from './features/live/LiveScreen'
 import { ReminderBanner } from './features/settings/ReminderBanner'
 import { SettingsScreen } from './features/settings/SettingsScreen'
+import { UnreadableDataBanner } from './features/settings/UnreadableDataBanner'
 import { StatsScreen } from './features/stats/StatsScreen'
 import { useFuelEntries } from './hooks/useFuelEntries'
 import { useSessions } from './hooks/useSessions'
 import { useSettings } from './hooks/useSettings'
+import { getUnreadableData } from './storage/localStorage'
 
 export default function App() {
   const [tab, setTab] = useState<TabId>('calendar')
@@ -31,6 +33,9 @@ export default function App() {
     replaceAllFuelEntries,
   } = useFuelEntries()
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  // Read after the hooks above have loaded everything from storage.
+  const [unreadableData] = useState(() => getUnreadableData())
+  const [unreadableDismissed, setUnreadableDismissed] = useState(false)
 
   const allEntries = useMemo(() => [...sessions, ...fuelEntries], [sessions, fuelEntries])
 
@@ -46,6 +51,12 @@ export default function App() {
 
   return (
     <>
+      {unreadableData.length > 0 && !unreadableDismissed && (
+        <UnreadableDataBanner
+          items={unreadableData}
+          onDismiss={() => setUnreadableDismissed(true)}
+        />
+      )}
       {showReminder && (
         <ReminderBanner
           onGoToBackup={() => {

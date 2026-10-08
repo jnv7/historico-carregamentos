@@ -4,7 +4,7 @@ import { readJson, writeJson } from './localStorage'
 const KEY = 'historico-carregamentos:sessions'
 
 export function loadSessions(): ChargingSession[] {
-  return readJson<ChargingSession[]>(KEY, [])
+  return readJson<ChargingSession[]>(KEY, [], Array.isArray)
 }
 
 export function saveSessions(sessions: ChargingSession[]): void {

@@ -1,0 +1,123 @@
+.figure {
+  margin: 0 0 12px;
+}
+
+.title {
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.readout {
+  margin: 10px 0 6px;
+  font-size: 0.9rem;
+  min-height: 2.6em;
+}
+
+.readoutLabel {
+  font-weight: 600;
+  margin-right: 10px;
+}
+
+.readoutValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scroller {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.svg {
+  display: block;
+  height: auto;
+  overflow: visible;
+  touch-action: pan-x pan-y;
+}
+
+.svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.selectedBand {
+  fill: var(--bg-elevated);
+}
+
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.yTick,
+.xTick,
+.referenceLabel {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.yTick {
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.xTick {
+  text-anchor: middle;
+}
+
+.reference {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+.referenceLabel {
+  text-anchor: end;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dot {
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+
+.hit {
+  fill: transparent;
+  cursor: pointer;
+}
