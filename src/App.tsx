@@ -1,16 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import changelog from 'virtual:changelog'
 import { TabBar, type TabId } from './components/TabBar'
 import { shouldShowBackupReminder } from './domain/backupReminder'
 import { DEFAULT_CAR_ID } from './domain/types'
+import { entriesToShow } from './domain/whatsNew'
 import { CalendarScreen } from './features/sessions/CalendarScreen'
 import { LiveScreen } from './features/live/LiveScreen'
 import { ReminderBanner } from './features/settings/ReminderBanner'
 import { SettingsScreen } from './features/settings/SettingsScreen'
 import { UnreadableDataBanner } from './features/settings/UnreadableDataBanner'
 import { StatsScreen } from './features/stats/StatsScreen'
+import { WhatsNewModal } from './features/whatsNew/WhatsNewModal'
 import { useFuelEntries } from './hooks/useFuelEntries'
 import { useSessions } from './hooks/useSessions'
 import { useSettings } from './hooks/useSettings'
+import { loadLastSeenVersion, saveLastSeenVersion } from './storage/appVersionRepository'
 import { getUnreadableData } from './storage/localStorage'
 
 export default function App() {
@@ -36,6 +40,15 @@ export default function App() {
   // Read after the hooks above have loaded everything from storage.
   const [unreadableData] = useState(() => getUnreadableData())
   const [unreadableDismissed, setUnreadableDismissed] = useState(false)
+
+  const [whatsNew, setWhatsNew] = useState(() =>
+    entriesToShow(changelog, loadLastSeenVersion(), sessions.length > 0 || fuelEntries.length > 0),
+  )
+
+  // Marked as seen as soon as the app opens, so the popup only ever shows once.
+  useEffect(() => {
+    if (changelog.builtFrom) saveLastSeenVersion(changelog.builtFrom)
+  }, [])
 
   const allEntries = useMemo(() => [...sessions, ...fuelEntries], [sessions, fuelEntries])
 
@@ -106,6 +119,8 @@ export default function App() {
       </main>
 
       <TabBar active={tab} onChange={setTab} />
+
+      {whatsNew.length > 0 && <WhatsNewModal entries={whatsNew} onClose={() => setWhatsNew([])} />}
     </>
   )
 }

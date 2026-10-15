@@ -23,3 +23,6 @@ dev-dist
 *.njsproj
 *.sln
 *.sw?
+
+# Generated from git history (npm run changelog)
+CHANGELOG.md

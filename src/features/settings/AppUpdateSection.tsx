@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import changelog from 'virtual:changelog'
 import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
 import { formatDate } from '../../domain/format'
 import { updateAndReload } from '../../utils/appUpdate'
@@ -46,9 +47,12 @@ export function AppUpdateSection({
     <div className="stack">
       <h3>Aplicação</h3>
       <p style={{ color: 'var(--text-muted)' }}>
-        Versão de {new Date(__APP_BUILD_TIME__).toLocaleString('pt-PT')}. Recarregar procura uma
-        versão nova sem apagar os teus dados.
+        Versão de {new Date(changelog.builtFrom ?? __APP_BUILD_TIME__).toLocaleString('pt-PT')}.
+        Recarregar procura uma versão nova sem apagar os teus dados.
       </p>
+      <a href={`${import.meta.env.BASE_URL}CHANGELOG.md`} target="_blank" rel="noreferrer">
+        Ver histórico de alterações
+      </a>
       {step !== 'confirming' ? (
         <button
           type="button"

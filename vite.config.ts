@@ -1,7 +1,28 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import type { Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { buildChangelog, parseGitLog, readGitLog, toMarkdown } from './scripts/changelog.mjs'
+
+/** Builds the changelog from git: `virtual:changelog` for the popup and CHANGELOG.md in the build. */
+function changelogPlugin(): Plugin {
+  const VIRTUAL_ID = 'virtual:changelog'
+  const RESOLVED_ID = `\0${VIRTUAL_ID}`
+  const commits = parseGitLog(readGitLog(process.cwd()) ?? '')
+  return {
+    name: 'changelog',
+    resolveId(id) {
+      if (id === VIRTUAL_ID) return RESOLVED_ID
+    },
+    load(id) {
+      if (id === RESOLVED_ID) return `export default ${JSON.stringify(buildChangelog(commits))}`
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'CHANGELOG.md', source: toMarkdown(commits) })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -11,6 +32,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    changelogPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.svg'],

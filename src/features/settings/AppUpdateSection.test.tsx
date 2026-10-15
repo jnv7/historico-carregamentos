@@ -5,6 +5,9 @@ import type { CarSettings } from '../../domain/types'
 import { DEFAULT_SETTINGS } from '../../storage/settingsRepository'
 import { AppUpdateSection } from './AppUpdateSection'
 
+vi.mock('virtual:changelog', () => ({
+  default: { builtFrom: '2026-10-20T10:00:00+01:00', entries: [] },
+}))
 vi.mock('../../utils/appUpdate', () => ({ updateAndReload: vi.fn() }))
 vi.mock('../../utils/download', () => ({ downloadTextFile: vi.fn() }))
 
@@ -70,5 +73,14 @@ describe('AppUpdateSection', () => {
     await user.click(screen.getByRole('button', { name: 'Procurar atualizações e recarregar' }))
     await user.click(screen.getByRole('button', { name: 'Atualizar sem cópia' }))
     expect(updateAndReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('links to the full change history', () => {
+    renderSection(false)
+
+    expect(screen.getByRole('link', { name: 'Ver histórico de alterações' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/CHANGELOG\.md$/),
+    )
   })
 })
