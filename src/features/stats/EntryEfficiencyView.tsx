@@ -19,6 +19,7 @@ export interface EntryEfficiencyViewProps {
   filter: StatsFilter
   period: Period
   monthCursor: Date
+  batteryCapacityKwh: number | null
 }
 
 /** Efficiency of each entry on its own, compared with the period's average. */
@@ -28,11 +29,12 @@ export function EntryEfficiencyView({
   filter,
   period,
   monthCursor,
+  batteryCapacityKwh,
 }: EntryEfficiencyViewProps) {
   // Computed over everything, then filtered, so a month's first entry still has a previous reading.
   const allPoints = useMemo(
-    () => computeEfficiencyPoints(sessions, fuelEntries, filter),
-    [sessions, fuelEntries, filter],
+    () => computeEfficiencyPoints(sessions, fuelEntries, filter, { batteryCapacityKwh }),
+    [sessions, fuelEntries, filter, batteryCapacityKwh],
   )
   const points = useMemo(
     () =>
@@ -91,8 +93,8 @@ export function EntryEfficiencyView({
   const subtitle = usesCost
     ? 'Tudo o que foi pago ÷ km desde a leitura anterior do conta-quilómetros'
     : filter === 'electric'
-      ? 'kWh carregados ÷ km desde o carregamento anterior'
-      : 'Litros ÷ km desde o abastecimento anterior (assume depósito cheio)'
+      ? 'Energia gasta ÷ km desde o carregamento anterior. Usa a % da bateria quando a registas.'
+      : 'Litros ÷ km entre depósitos cheios.'
 
   return (
     <div>
@@ -128,7 +130,8 @@ export function EntryEfficiencyView({
           const p = points[i]
           const comparison = compareToAverage(metricOf(p))
           return [
-            `${formatDecimal(p.kmDriven, 0)} km desde a leitura anterior`,
+            distanceDetail(p, filter),
+            p.energyMethod === 'battery' ? 'calculado pela % da bateria' : null,
             comparison,
             p.entriesInInterval > 1 ? `inclui ${p.entriesInInterval} registos` : null,
             metricOf(p) === null ? 'custo desconhecido' : null,
@@ -154,7 +157,7 @@ export function EntryEfficiencyView({
                 <td style={{ ...cell, textAlign: 'left', whiteSpace: 'nowrap' }}>
                   {p.kind === 'electric' ? '⚡' : '⛽'} {formatDate(p.startAt)}
                 </td>
-                <td style={cell}>{formatDecimal(p.kmDriven, 0)}</td>
+                <td style={cell}>{formatDecimal(p.distanceKm, 0)}</td>
                 {!usesCost && (
                   <td style={cell}>
                     {p.consumptionPer100Km !== null ? formatDecimal(p.consumptionPer100Km) : '—'}
@@ -170,10 +173,18 @@ export function EntryEfficiencyView({
       </div>
       <p className="muted" style={{ fontSize: '0.85rem' }}>
         Registos sem km não têm linha própria: o que foi carregado ou abastecido conta para o
-        registo seguinte com km.
+        registo seguinte com km. Abastecimentos parciais contam para o próximo depósito cheio.
       </p>
     </div>
   )
+}
+
+function distanceDetail(p: EfficiencyPoint, filter: StatsFilter): string {
+  if (p.kmBasis === 'mode' && filter !== 'all') {
+    const mode = filter === 'electric' ? 'em elétrico' : 'a combustível'
+    return `${formatDecimal(p.distanceKm, 0)} km ${mode} (de ${formatDecimal(p.kmDriven, 0)} no total)`
+  }
+  return `${formatDecimal(p.kmDriven, 0)} km desde a leitura anterior`
 }
 
 const cell = { padding: '8px 10px', fontVariantNumeric: 'tabular-nums' } as const

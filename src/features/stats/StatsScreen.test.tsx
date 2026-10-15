@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { formatCurrency } from '../../domain/format'
 import { DEFAULT_CAR_ID, type ChargingSession, type FuelEntry } from '../../domain/types'
 import { StatsScreen } from './StatsScreen'
 
@@ -49,13 +50,13 @@ function makeFuelEntry(overrides: Partial<FuelEntry>): FuelEntry {
 
 describe('StatsScreen', () => {
   it('shows an empty state for the current month with no entries', () => {
-    render(<StatsScreen sessions={[]} fuelEntries={[]} />)
+    render(<StatsScreen sessions={[]} fuelEntries={[]} batteryCapacityKwh={null} />)
     expect(screen.getByText('Sem registos neste mês.')).toBeInTheDocument()
   })
 
   it('shows an empty state for Total with no entries at all', async () => {
     const user = userEvent.setup()
-    render(<StatsScreen sessions={[]} fuelEntries={[]} />)
+    render(<StatsScreen sessions={[]} fuelEntries={[]} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Total' }))
 
@@ -65,7 +66,13 @@ describe('StatsScreen', () => {
   it('defaults to the current month and excludes entries from other months', () => {
     const sessions = [makeSession({ startAt: thisMonth, energyKwh: 10, cost: 2 })]
     const olderSessions = [makeSession({ startAt: twoMonthsAgo, energyKwh: 99, cost: 9 })]
-    render(<StatsScreen sessions={[...sessions, ...olderSessions]} fuelEntries={[]} />)
+    render(
+      <StatsScreen
+        sessions={[...sessions, ...olderSessions]}
+        fuelEntries={[]}
+        batteryCapacityKwh={null}
+      />,
+    )
 
     expect(screen.getByText('1')).toBeInTheDocument() // count for this month only
   })
@@ -73,7 +80,7 @@ describe('StatsScreen', () => {
   it('shows entries from other months after navigating with the month arrows', async () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ startAt: twoMonthsAgo, cost: 2 })]
-    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
 
     expect(screen.getByText('Sem registos neste mês.')).toBeInTheDocument()
 
@@ -87,7 +94,7 @@ describe('StatsScreen', () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ startAt: thisMonth, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ startAt: twoMonthsAgo, cost: 45 })]
-    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Total' }))
 
@@ -98,7 +105,7 @@ describe('StatsScreen', () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ cost: 45 })]
-    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Elétrico' }))
 
@@ -109,7 +116,7 @@ describe('StatsScreen', () => {
     const user = userEvent.setup()
     const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ liters: 30, cost: 45 })]
-    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={fuelEntries} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Combustível' }))
 
@@ -118,7 +125,7 @@ describe('StatsScreen', () => {
 
   it('shows the monthly evolution charts under the summary', () => {
     const sessions = [makeSession({ cost: 2 })]
-    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
 
     expect(screen.getByRole('img', { name: /Custo por mês/ })).toBeInTheDocument()
   })
@@ -131,7 +138,7 @@ describe('StatsScreen', () => {
       makeSession({ startAt: day(3), odometerKm: 1100, energyKwh: 15, cost: 3 }),
       makeSession({ startAt: day(5), odometerKm: 1300, energyKwh: 34, cost: 5 }),
     ]
-    render(<StatsScreen sessions={sessions} fuelEntries={[]} />)
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Por registo' }))
     await user.click(screen.getByRole('button', { name: 'Elétrico' }))
@@ -148,10 +155,43 @@ describe('StatsScreen', () => {
 
   it('explains how to get per-entry efficiency when there are no odometer readings', async () => {
     const user = userEvent.setup()
-    render(<StatsScreen sessions={[makeSession({})]} fuelEntries={[]} />)
+    render(<StatsScreen sessions={[makeSession({})]} fuelEntries={[]} batteryCapacityKwh={null} />)
 
     await user.click(screen.getByRole('button', { name: 'Por registo' }))
 
     expect(screen.getByText(/regista os km do conta-quilómetros/)).toBeInTheDocument()
+  })
+
+  it('does not count a charge that is still running', async () => {
+    const user = userEvent.setup()
+    const sessions = [
+      makeSession({ energyKwh: 10, cost: 2 }),
+      makeSession({ isLive: true, energyKwh: 0 }),
+    ]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Elétrico' }))
+
+    expect(screen.getByText('Carregamentos').nextSibling).toHaveTextContent('1')
+  })
+
+  it('uses the same cost per km as the per-entry view, ignoring km from other months', async () => {
+    const user = userEvent.setup()
+    const month = (offset: number, day: number) =>
+      new Date(today.getFullYear(), today.getMonth() + offset, day, 10).toISOString()
+    const sessions = [
+      makeSession({ startAt: month(-1, 20), odometerKm: 1000, cost: 10 }),
+      makeSession({ startAt: month(0, 5), odometerKm: 1100, cost: 10 }),
+      makeSession({ startAt: month(0, 20), odometerKm: 1300, cost: 10 }),
+    ]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Elétrico' }))
+
+    // This month: 20 € over the 300 km since last month's reading.
+    expect(screen.getByText('Custo médio por km').nextSibling?.textContent).toBe(
+      formatCurrency(20 / 300),
+    )
+    expect(screen.getByText('Baseado em 300 km percorridos')).toBeInTheDocument()
   })
 })

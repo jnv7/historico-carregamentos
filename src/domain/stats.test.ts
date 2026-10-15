@@ -49,8 +49,6 @@ describe('computeElectricStats', () => {
       totalCost: 0,
       sessionsWithCost: 0,
       averageCostPerKwh: null,
-      totalKmDriven: null,
-      averageCostPerKm: null,
     })
   })
 
@@ -80,24 +78,6 @@ describe('computeElectricStats', () => {
     expect(stats.totalCost).toBe(2)
     expect(stats.sessionsWithCost).toBe(1)
     expect(stats.averageCostPerKwh).toBe(0.2)
-  })
-
-  it('derives km driven and cost per km from the earliest/latest odometer readings', () => {
-    const sessions = [
-      makeSession({ startAt: '2024-01-01T10:00:00.000Z', odometerKm: 1000, cost: 5 }),
-      makeSession({ startAt: '2024-01-10T10:00:00.000Z', odometerKm: 1500, cost: 5 }),
-    ]
-
-    const stats = computeElectricStats(sessions)
-
-    expect(stats.totalKmDriven).toBe(500)
-    expect(stats.totalCost).toBe(10)
-    expect(stats.averageCostPerKm).toBe(0.02)
-  })
-
-  it('does not compute km driven with fewer than two odometer readings', () => {
-    const sessions = [makeSession({ odometerKm: 1000 })]
-    expect(computeElectricStats(sessions).totalKmDriven).toBeNull()
   })
 })
 
@@ -138,22 +118,4 @@ describe('computeCombinedStats', () => {
     expect(stats.fuelCost).toBe(45)
     expect(stats.totalCost).toBe(50)
   })
-
-  it('derives km driven from odometer readings across both kinds', () => {
-    const sessions = [
-      makeSession({ startAt: '2024-01-01T10:00:00.000Z', odometerKm: 1000, cost: 5 }),
-    ]
-    const fuelEntries = [
-      makeFuelEntry({ startAt: '2024-01-10T10:00:00.000Z', odometerKm: 1500, cost: 45 }),
-    ]
-
-    const stats = computeCombinedStats(sessions, fuelEntries)
-
-    expect(stats.totalKmDriven).toBe(500)
-    expect(stats.averageCostPerKm).toBe(round2(50 / 500))
-  })
 })
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100
-}

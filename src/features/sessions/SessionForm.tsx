@@ -44,6 +44,9 @@ export function SessionForm({
   const [odometerKm, setOdometerKm] = useState(
     initialSession?.odometerKm != null ? String(initialSession.odometerKm) : '',
   )
+  const [electricKm, setElectricKm] = useState(
+    initialSession?.electricKm != null ? String(initialSession.electricKm) : '',
+  )
   const [location, setLocation] = useState(initialSession?.location ?? '')
   const [chargerType, setChargerType] = useState<ChargerType | ''>(
     initialSession?.chargerType ?? '',
@@ -78,6 +81,11 @@ export function SessionForm({
       return
     }
 
+    if (electricKm.trim() !== '' && !(Number(electricKm) >= 0)) {
+      setError('Os km em modo elétrico não podem ser negativos.')
+      return
+    }
+
     const startAt = combineDateAndTime(dateValue, timeValue).toISOString()
     const finalCost = cost.trim() !== '' ? Number(cost) : inferredCost
 
@@ -91,6 +99,7 @@ export function SessionForm({
       batteryStartPct: batteryStartPct.trim() !== '' ? Number(batteryStartPct) : null,
       batteryEndPct: batteryEndPct.trim() !== '' ? Number(batteryEndPct) : null,
       odometerKm: odometerKm.trim() !== '' ? Number(odometerKm) : null,
+      electricKm: electricKm.trim() !== '' ? Number(electricKm) : null,
       location: location.trim() !== '' ? location.trim() : null,
       chargerType: chargerType !== '' ? chargerType : null,
       notes: notes.trim() !== '' ? notes.trim() : null,
@@ -177,6 +186,21 @@ export function SessionForm({
               value={odometerKm}
               onChange={(e) => setOdometerKm(e.target.value)}
             />
+          </div>
+
+          <div className="field">
+            <label htmlFor="electric-km">Km em modo elétrico desde o carregamento anterior</label>
+            <input
+              id="electric-km"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={electricKm}
+              onChange={(e) => setElectricKm(e.target.value)}
+            />
+            <small className="muted">
+              Vê no computador de bordo. Serve para separar o consumo elétrico do de combustível.
+            </small>
           </div>
 
           <div className="field">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import changelog from 'virtual:changelog'
 import { TabBar, type TabId } from './components/TabBar'
+import { effectiveBatteryCapacity } from './domain/batteryCapacity'
 import { shouldShowBackupReminder } from './domain/backupReminder'
 import { DEFAULT_CAR_ID } from './domain/types'
 import { entriesToShow } from './domain/whatsNew'
@@ -49,6 +50,11 @@ export default function App() {
   useEffect(() => {
     if (changelog.builtFrom) saveLastSeenVersion(changelog.builtFrom)
   }, [])
+
+  const batteryCapacityKwh = useMemo(
+    () => effectiveBatteryCapacity(settings.batteryCapacityKwh, sessions),
+    [settings.batteryCapacityKwh, sessions],
+  )
 
   const allEntries = useMemo(() => [...sessions, ...fuelEntries], [sessions, fuelEntries])
 
@@ -104,7 +110,13 @@ export default function App() {
             onUpdate={updateSession}
           />
         )}
-        {tab === 'stats' && <StatsScreen sessions={sessions} fuelEntries={fuelEntries} />}
+        {tab === 'stats' && (
+          <StatsScreen
+            sessions={sessions}
+            fuelEntries={fuelEntries}
+            batteryCapacityKwh={batteryCapacityKwh}
+          />
+        )}
         {tab === 'settings' && (
           <SettingsScreen
             settings={settings}

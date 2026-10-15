@@ -147,6 +147,262 @@ describe('computeEfficiencyPoints', () => {
   })
 })
 
+describe('fuel intervals between full tanks', () => {
+  it('carries a partial fill-up over to the next full tank', () => {
+    const fuel = [
+      makeFuelEntry({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000, liters: 40 }),
+      makeFuelEntry({
+        startAt: '2024-01-05T10:00:00Z',
+        odometerKm: 1200,
+        liters: 10,
+        fullTank: false,
+      }),
+      makeFuelEntry({ startAt: '2024-01-10T10:00:00Z', odometerKm: 1500, liters: 25 }),
+    ]
+
+    const points = computeEfficiencyPoints([], fuel, 'fuel')
+
+    expect(points).toHaveLength(1)
+    expect(points[0]).toMatchObject({ quantity: 35, kmDriven: 500 })
+    expect(points[0].consumptionPer100Km).toBeCloseTo(7)
+  })
+
+  it('treats a record without the full tank field as a full tank', () => {
+    const fuel = [
+      makeFuelEntry({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 }),
+      makeFuelEntry({ startAt: '2024-01-10T10:00:00Z', odometerKm: 1500, liters: 25 }),
+    ]
+
+    expect(computeEfficiencyPoints([], fuel, 'fuel')).toHaveLength(1)
+  })
+})
+
+describe('energy from the battery percentage', () => {
+  const options = { batteryCapacityKwh: 50 }
+  const previous = makeSession({
+    startAt: '2024-01-01T10:00:00Z',
+    odometerKm: 1000,
+    energyKwh: 40,
+    cost: 8,
+    batteryStartPct: 40,
+    batteryEndPct: 80,
+  })
+
+  it('uses what left the battery instead of what was charged', () => {
+    const current = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 5,
+      batteryStartPct: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([previous, current], [], 'electric', options)
+
+    expect(point).toMatchObject({ quantity: 30, consumptionPer100Km: 10, energyMethod: 'battery' })
+    expect(point.cost).toBeCloseTo(6) // 30 kWh at the previous charge's 0.20 €/kWh
+  })
+
+  it('adds the charges made in between', () => {
+    const between = makeSession({
+      startAt: '2024-01-03T10:00:00Z',
+      energyKwh: 10,
+      cost: 2,
+    })
+    const current = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 5,
+      batteryStartPct: 40,
+    })
+
+    const [point] = computeEfficiencyPoints([previous, between, current], [], 'electric', options)
+
+    expect(point.quantity).toBeCloseTo(30) // 20 from the battery + 10 charged in between
+    expect(point.cost).toBeCloseTo(6) // 20 × 0.20 + 2
+  })
+
+  it('falls back to the energy charged without the starting battery', () => {
+    const current = makeSession({ startAt: '2024-01-05T10:00:00Z', odometerKm: 1300, energyKwh: 5 })
+
+    const [point] = computeEfficiencyPoints([previous, current], [], 'electric', options)
+
+    expect(point).toMatchObject({ quantity: 5, energyMethod: 'charged' })
+  })
+
+  it('falls back to the energy charged without a capacity', () => {
+    const current = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 5,
+      batteryStartPct: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([previous, current], [], 'electric', {
+      batteryCapacityKwh: null,
+    })
+
+    expect(point).toMatchObject({ quantity: 5, energyMethod: 'charged' })
+  })
+
+  it('falls back when the battery figures would give negative energy', () => {
+    const current = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 5,
+      batteryStartPct: 90,
+    })
+
+    const [point] = computeEfficiencyPoints([previous, current], [], 'electric', options)
+
+    expect(point).toMatchObject({ quantity: 5, energyMethod: 'charged' })
+  })
+
+  it('does not apply to the combined scope', () => {
+    const current = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 5,
+      cost: 1,
+      batteryStartPct: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([previous, current], [], 'all', options)
+
+    expect(point).toMatchObject({ quantity: null, energyMethod: 'charged', cost: 1 })
+  })
+})
+
+describe('km driven in electric mode', () => {
+  const first = makeSession({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 })
+
+  it('divides the electric energy by the km driven in electric mode', () => {
+    const second = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 30,
+      electricKm: 200,
+    })
+
+    const [point] = computeEfficiencyPoints([first, second], [], 'electric')
+
+    expect(point).toMatchObject({
+      distanceKm: 200,
+      kmDriven: 300,
+      kmBasis: 'mode',
+      consumptionPer100Km: 15,
+    })
+  })
+
+  it('adds the electric km of charges without an odometer reading', () => {
+    const between = makeSession({ startAt: '2024-01-03T10:00:00Z', electricKm: 50 })
+    const second = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      electricKm: 150,
+    })
+
+    const [point] = computeEfficiencyPoints([first, between, second], [], 'electric')
+
+    expect(point.distanceKm).toBe(200)
+  })
+
+  it('uses the odometer km when any charge in the interval lacks them', () => {
+    const between = makeSession({ startAt: '2024-01-03T10:00:00Z' })
+    const second = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      electricKm: 150,
+    })
+
+    const [point] = computeEfficiencyPoints([first, between, second], [], 'electric')
+
+    expect(point).toMatchObject({ distanceKm: 300, kmBasis: 'total' })
+  })
+})
+
+describe('fuel consumption of a plug-in hybrid', () => {
+  const first = makeFuelEntry({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 })
+
+  it('takes the km driven in electric mode out of the distance', () => {
+    const charge = makeSession({ startAt: '2024-01-03T10:00:00Z', electricKm: 150 })
+    const second = makeFuelEntry({
+      startAt: '2024-01-10T10:00:00Z',
+      odometerKm: 1500,
+      liters: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([charge], [first, second], 'fuel')
+
+    expect(point).toMatchObject({ distanceKm: 350, kmDriven: 500, kmBasis: 'mode' })
+    expect(point.consumptionPer100Km).toBeCloseTo(5.714, 2)
+  })
+
+  it('keeps the odometer km when a charge has no electric km', () => {
+    const charge = makeSession({ startAt: '2024-01-03T10:00:00Z' })
+    const second = makeFuelEntry({
+      startAt: '2024-01-10T10:00:00Z',
+      odometerKm: 1500,
+      liters: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([charge], [first, second], 'fuel')
+
+    expect(point).toMatchObject({ distanceKm: 500, consumptionPer100Km: 4 })
+  })
+
+  it('keeps the odometer km when there are no charges in between', () => {
+    const second = makeFuelEntry({
+      startAt: '2024-01-10T10:00:00Z',
+      odometerKm: 1500,
+      liters: 20,
+    })
+
+    const [point] = computeEfficiencyPoints([], [first, second], 'fuel')
+
+    expect(point.distanceKm).toBe(500)
+  })
+})
+
+describe('a partial charge followed by a full one', () => {
+  it('gives the real consumption instead of absurd values', () => {
+    const sessions = [
+      makeSession({
+        startAt: '2024-01-01T10:00:00Z',
+        odometerKm: 1000,
+        energyKwh: 30,
+        batteryStartPct: 20,
+        batteryEndPct: 80,
+      }),
+      makeSession({
+        startAt: '2024-01-05T10:00:00Z',
+        odometerKm: 1300,
+        energyKwh: 5,
+        batteryStartPct: 20,
+        batteryEndPct: 30,
+      }),
+      makeSession({
+        startAt: '2024-01-06T10:00:00Z',
+        odometerKm: 1305,
+        energyKwh: 36,
+        batteryStartPct: 29,
+        batteryEndPct: 100,
+      }),
+    ]
+
+    const withBattery = computeEfficiencyPoints(sessions, [], 'electric', {
+      batteryCapacityKwh: 50,
+    })
+    const withoutBattery = computeEfficiencyPoints(sessions, [], 'electric')
+
+    expect(withBattery.map((p) => p.consumptionPer100Km)).toEqual([
+      expect.closeTo(10),
+      expect.closeTo(10),
+    ])
+    expect(withoutBattery[0].consumptionPer100Km).toBeCloseTo(1.67, 1)
+    expect(withoutBattery[1].consumptionPer100Km).toBeCloseTo(720)
+  })
+})
+
 describe('summarizeEfficiency', () => {
   it('weights by distance instead of averaging the per-point ratios', () => {
     const sessions = [

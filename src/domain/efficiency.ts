@@ -3,6 +3,13 @@ import type { ChargingSession, EntryKind, FuelEntry } from './types'
 /** Which entries an efficiency series is built from: one energy source, or both together. */
 export type EfficiencyScope = 'electric' | 'fuel' | 'all'
 
+export interface EfficiencyOptions {
+  /** Usable battery capacity in kWh; null turns off the battery-percentage calculation. */
+  batteryCapacityKwh: number | null
+}
+
+const DEFAULT_OPTIONS: EfficiencyOptions = { batteryCapacityKwh: null }
+
 /**
  * Efficiency of the distance driven up to one entry. The energy (or fuel) put in at
  * an entry replaces what was used since the previous odometer reading, so each point
@@ -13,7 +20,14 @@ export interface EfficiencyPoint {
   id: string
   kind: EntryKind
   startAt: string
+  /** Km on the odometer since the previous reading. */
   kmDriven: number
+  /** Km used as the divisor: the odometer's, or only those driven on this energy when known. */
+  distanceKm: number
+  /** 'total' = odometer km; 'mode' = only the km driven in electric mode (or only on fuel). */
+  kmBasis: 'total' | 'mode'
+  /** 'charged' = energy put in; 'battery' = worked out from the battery percentages. */
+  energyMethod: 'charged' | 'battery'
   /** kWh or litres; meaningless (and so null) for the 'all' scope, which mixes both. */
   quantity: number | null
   /** Null when any entry in the interval has no known cost. */
@@ -24,6 +38,7 @@ export interface EfficiencyPoint {
 }
 
 export interface EfficiencySummary {
+  /** Sum of the km used as divisors (see EfficiencyPoint.distanceKm). */
   kmDriven: number
   consumptionPer100Km: number | null
   costPer100Km: number | null
@@ -36,6 +51,10 @@ interface Item {
   odometerKm: number | null
   quantity: number
   cost: number | null
+  batteryStartPct: number | null
+  batteryEndPct: number | null
+  electricKm: number | null
+  fullTank: boolean
 }
 
 function toItems(
@@ -47,24 +66,81 @@ function toItems(
   if (scope !== 'fuel') {
     for (const s of sessions) {
       if (s.isLive) continue
-      items.push({ ...pick(s), quantity: s.energyKwh, cost: s.cost })
+      items.push({
+        id: s.id,
+        kind: s.kind,
+        startAt: s.startAt,
+        odometerKm: s.odometerKm,
+        quantity: s.energyKwh,
+        cost: s.cost,
+        batteryStartPct: s.batteryStartPct,
+        batteryEndPct: s.batteryEndPct,
+        electricKm: s.electricKm ?? null,
+        fullTank: true,
+      })
     }
   }
   if (scope !== 'electric') {
     for (const e of fuelEntries) {
-      items.push({ ...pick(e), quantity: e.liters, cost: e.cost })
+      items.push({
+        id: e.id,
+        kind: e.kind,
+        startAt: e.startAt,
+        odometerKm: e.odometerKm,
+        quantity: e.liters,
+        cost: e.cost,
+        batteryStartPct: null,
+        batteryEndPct: null,
+        electricKm: null,
+        fullTank: e.fullTank !== false,
+      })
     }
   }
   return items.sort((a, b) => a.startAt.localeCompare(b.startAt))
 }
 
-function pick(entry: ChargingSession | FuelEntry) {
-  return {
-    id: entry.id,
-    kind: entry.kind,
-    startAt: entry.startAt,
-    odometerKm: entry.odometerKm,
+/**
+ * Energy used between two readings, from the battery: what was in it when the previous charge
+ * ended, minus what was left when this one started, plus what was charged in between. Null when
+ * a figure is missing.
+ */
+function energyFromBattery(
+  previous: Item,
+  current: Item,
+  chargedBetween: number,
+  costBetween: number | null,
+  capacityKwh: number | null,
+): { quantity: number; cost: number | null } | null {
+  if (capacityKwh === null || previous.batteryEndPct === null || current.batteryStartPct === null) {
+    return null
   }
+  const fromBattery = ((previous.batteryEndPct - current.batteryStartPct) / 100) * capacityKwh
+  const quantity = fromBattery + chargedBetween
+  if (quantity <= 0) return null
+  // The energy that was already in the battery was paid at the previous charge's price.
+  const previousPrice =
+    previous.cost !== null && previous.quantity > 0 ? previous.cost / previous.quantity : null
+  const cost =
+    previousPrice === null || costBetween === null
+      ? null
+      : fromBattery * previousPrice + costBetween
+  return { quantity, cost }
+}
+
+/**
+ * Km driven in electric mode between two fill-ups, from the charges in between (approximate:
+ * each charge counts the km since the one before it). Null when there are none or one lacks them.
+ */
+function electricKmBetween(
+  sessions: ChargingSession[],
+  fromStartAt: string,
+  toStartAt: string,
+): number | null {
+  const between = sessions.filter(
+    (s) => !s.isLive && s.startAt > fromStartAt && s.startAt <= toStartAt,
+  )
+  if (between.length === 0 || between.some((s) => s.electricKm == null)) return null
+  return between.reduce((acc, s) => acc + s.electricKm!, 0)
 }
 
 /** Builds one efficiency point per entry that closes an interval between two odometer readings. */
@@ -72,39 +148,85 @@ export function computeEfficiencyPoints(
   sessions: ChargingSession[],
   fuelEntries: FuelEntry[],
   scope: EfficiencyScope,
+  options: EfficiencyOptions = DEFAULT_OPTIONS,
 ): EfficiencyPoint[] {
   const points: EfficiencyPoint[] = []
-  let previousKm: number | null = null
+  let previous: Item | null = null
   let quantity = 0
   let cost: number | null = 0
   let entries = 0
+  let electricKm: number | null = 0
 
   for (const item of toItems(sessions, fuelEntries, scope)) {
+    // What was put in before this entry: this entry's own charge happens after its starting battery.
+    const chargedBetween = quantity
+    const costBetween = cost
+
     quantity += item.quantity
     cost = cost === null || item.cost === null ? null : cost + item.cost
+    electricKm =
+      electricKm === null || item.electricKm === null ? null : electricKm + item.electricKm
     entries += 1
-    if (item.odometerKm === null) continue
 
-    const kmDriven = previousKm === null ? 0 : item.odometerKm - previousKm
+    // A partial fill-up does not close a fuel interval: its litres carry over to the next full tank.
+    const closesInterval = item.odometerKm !== null && (scope !== 'fuel' || item.fullTank)
+    if (!closesInterval) continue
+
+    const kmDriven: number = previous === null ? 0 : item.odometerKm! - previous.odometerKm!
     // A first reading has nothing to compare against; a non-increasing one is a typo or out of order.
-    if (kmDriven > 0) {
-      const pointQuantity = scope === 'all' ? null : quantity
+    if (kmDriven > 0 && previous !== null) {
+      let pointQuantity = scope === 'all' ? null : quantity
+      let pointCost = cost
+      let energyMethod: EfficiencyPoint['energyMethod'] = 'charged'
+      if (scope === 'electric') {
+        const fromBattery = energyFromBattery(
+          previous,
+          item,
+          chargedBetween,
+          costBetween,
+          options.batteryCapacityKwh,
+        )
+        if (fromBattery) {
+          pointQuantity = fromBattery.quantity
+          pointCost = fromBattery.cost
+          energyMethod = 'battery'
+        }
+      }
+
+      let distanceKm = kmDriven
+      let kmBasis: EfficiencyPoint['kmBasis'] = 'total'
+      if (scope === 'electric' && electricKm !== null && electricKm > 0) {
+        distanceKm = electricKm
+        kmBasis = 'mode'
+      }
+      if (scope === 'fuel') {
+        const evKm = electricKmBetween(sessions, previous.startAt, item.startAt)
+        if (evKm !== null && kmDriven - evKm > 0) {
+          distanceKm = kmDriven - evKm
+          kmBasis = 'mode'
+        }
+      }
+
       points.push({
         id: item.id,
         kind: item.kind,
         startAt: item.startAt,
         kmDriven,
+        distanceKm,
+        kmBasis,
+        energyMethod,
         quantity: pointQuantity,
-        cost,
+        cost: pointCost,
         entriesInInterval: entries,
-        consumptionPer100Km: pointQuantity === null ? null : (pointQuantity / kmDriven) * 100,
-        costPer100Km: cost === null ? null : (cost / kmDriven) * 100,
+        consumptionPer100Km: pointQuantity === null ? null : (pointQuantity / distanceKm) * 100,
+        costPer100Km: pointCost === null ? null : (pointCost / distanceKm) * 100,
       })
     }
-    previousKm = item.odometerKm
+    previous = item
     quantity = 0
     cost = 0
     entries = 0
+    electricKm = 0
   }
 
   return points
@@ -112,14 +234,14 @@ export function computeEfficiencyPoints(
 
 /** Distance-weighted averages over a set of points (not an average of per-point ratios). */
 export function summarizeEfficiency(points: EfficiencyPoint[]): EfficiencySummary {
-  const kmDriven = points.reduce((acc, p) => acc + p.kmDriven, 0)
+  const kmDriven = points.reduce((acc, p) => acc + p.distanceKm, 0)
 
   const withQuantity = points.filter((p) => p.quantity !== null)
-  const quantityKm = withQuantity.reduce((acc, p) => acc + p.kmDriven, 0)
+  const quantityKm = withQuantity.reduce((acc, p) => acc + p.distanceKm, 0)
   const quantity = withQuantity.reduce((acc, p) => acc + p.quantity!, 0)
 
   const withCost = points.filter((p) => p.cost !== null)
-  const costKm = withCost.reduce((acc, p) => acc + p.kmDriven, 0)
+  const costKm = withCost.reduce((acc, p) => acc + p.distanceKm, 0)
   const cost = withCost.reduce((acc, p) => acc + p.cost!, 0)
 
   return {

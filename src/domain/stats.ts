@@ -6,8 +6,6 @@ export interface ElectricStats {
   totalCost: number
   sessionsWithCost: number
   averageCostPerKwh: number | null
-  totalKmDriven: number | null
-  averageCostPerKm: number | null
 }
 
 export interface FuelStats {
@@ -22,8 +20,6 @@ export interface CombinedStats {
   totalCost: number
   electricCost: number
   fuelCost: number
-  totalKmDriven: number | null
-  averageCostPerKm: number | null
 }
 
 function sum(values: number[]): number {
@@ -32,25 +28,6 @@ function sum(values: number[]): number {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100
-}
-
-/**
- * Derives km driven and average cost/km from a set of (possibly unsorted) odometer
- * readings — the odometer is an absolute reading, not km driven per entry, so the
- * distance is the gap between the earliest and latest reading in the set.
- */
-function deriveDistanceStats(
-  readings: { startAt: string; odometerKm: number }[],
-  totalCost: number,
-): { totalKmDriven: number | null; averageCostPerKm: number | null } {
-  const sorted = [...readings].sort((a, b) => a.startAt.localeCompare(b.startAt))
-  const totalKmDriven =
-    sorted.length >= 2 ? round2(sorted[sorted.length - 1].odometerKm - sorted[0].odometerKm) : null
-  const averageCostPerKm =
-    totalKmDriven !== null && totalKmDriven > 0 && totalCost > 0
-      ? round2(totalCost / totalKmDriven)
-      : null
-  return { totalKmDriven, averageCostPerKm }
 }
 
 /** Aggregates totals and averages for a set of charging sessions. */
@@ -64,19 +41,12 @@ export function computeElectricStats(sessions: ChargingSession[]): ElectricStats
   const averageCostPerKwh =
     withCost.length > 0 && energyWithCost > 0 ? round2(totalCost / energyWithCost) : null
 
-  const odometerReadings = sessions.filter(
-    (s): s is ChargingSession & { odometerKm: number } => s.odometerKm !== null,
-  )
-  const { totalKmDriven, averageCostPerKm } = deriveDistanceStats(odometerReadings, totalCost)
-
   return {
     count,
     totalEnergyKwh,
     totalCost,
     sessionsWithCost: withCost.length,
     averageCostPerKwh,
-    totalKmDriven,
-    averageCostPerKm,
   }
 }
 
@@ -90,11 +60,7 @@ export function computeFuelStats(entries: FuelEntry[]): FuelStats {
   return { count, totalLiters, totalCost, averageCostPerLiter }
 }
 
-/**
- * Combines electric and fuel entries into a single "total" view. Km driven uses
- * odometer readings from both kinds, since the odometer belongs to the car, not
- * the energy source.
- */
+/** Combines electric and fuel entries into a single "total" view of counts and costs. */
 export function computeCombinedStats(
   sessions: ChargingSession[],
   fuelEntries: FuelEntry[],
@@ -104,15 +70,5 @@ export function computeCombinedStats(
   const totalCost = round2(electricCost + fuelCost)
   const count = sessions.length + fuelEntries.length
 
-  const odometerReadings = [
-    ...sessions
-      .filter((s): s is ChargingSession & { odometerKm: number } => s.odometerKm !== null)
-      .map((s) => ({ startAt: s.startAt, odometerKm: s.odometerKm })),
-    ...fuelEntries
-      .filter((e): e is FuelEntry & { odometerKm: number } => e.odometerKm !== null)
-      .map((e) => ({ startAt: e.startAt, odometerKm: e.odometerKm })),
-  ]
-  const { totalKmDriven, averageCostPerKm } = deriveDistanceStats(odometerReadings, totalCost)
-
-  return { count, totalCost, electricCost, fuelCost, totalKmDriven, averageCostPerKm }
+  return { count, totalCost, electricCost, fuelCost }
 }

@@ -82,4 +82,55 @@ describe('FuelEntryForm', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('counts a new fill-up as a full tank by default', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<FuelEntryForm carId="car-1" onSubmit={onSubmit} onCancel={() => {}} />)
+
+    await user.type(screen.getByLabelText('Litros'), '35')
+    await user.type(screen.getByLabelText('Total (€)'), '55')
+    await user.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    expect(onSubmit.mock.calls[0][0].fullTank).toBe(true)
+  })
+
+  it('records a partial fill-up when the full tank box is cleared', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<FuelEntryForm carId="car-1" onSubmit={onSubmit} onCancel={() => {}} />)
+
+    await user.type(screen.getByLabelText('Litros'), '15')
+    await user.type(screen.getByLabelText('Total (€)'), '25')
+    await user.click(screen.getByLabelText('Depósito cheio (atestei)'))
+    await user.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    expect(onSubmit.mock.calls[0][0].fullTank).toBe(false)
+  })
+
+  it('shows a stored partial fill-up with the box cleared', () => {
+    render(
+      <FuelEntryForm
+        carId="car-1"
+        initialEntry={{
+          id: 'f1',
+          carId: 'car-1',
+          kind: 'fuel',
+          startAt: '2024-01-01T10:00:00.000Z',
+          liters: 15,
+          cost: 25,
+          odometerKm: null,
+          fullTank: false,
+          location: null,
+          notes: null,
+          createdAt: '2024-01-01T10:00:00.000Z',
+          updatedAt: '2024-01-01T10:00:00.000Z',
+        }}
+        onSubmit={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.getByLabelText('Depósito cheio (atestei)')).not.toBeChecked()
+  })
 })

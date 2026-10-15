@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { filterByMonth } from '../../domain/calendar'
+import { computeEfficiencyPoints, summarizeEfficiency } from '../../domain/efficiency'
 import { capitalizeFirst, formatCurrency, formatEnergy, formatLiters } from '../../domain/format'
 import { computeCombinedStats, computeElectricStats, computeFuelStats } from '../../domain/stats'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
@@ -25,9 +26,11 @@ const monthLabelFormatter = new Intl.DateTimeFormat('pt-PT', { month: 'long', ye
 export interface StatsScreenProps {
   sessions: ChargingSession[]
   fuelEntries: FuelEntry[]
+  /** Battery capacity used to work out energy from the battery percentages; null when unknown. */
+  batteryCapacityKwh: number | null
 }
 
-export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
+export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: StatsScreenProps) {
   const [view, setView] = useState<StatsView>('summary')
   const [filter, setFilter] = useState<StatsFilter>('all')
   const [period, setPeriod] = useState<Period>('month')
@@ -41,12 +44,14 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
     setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
   }
 
+  // A charge that is still running has no energy yet, so it is not counted.
+  const finishedSessions = useMemo(() => sessions.filter((s) => !s.isLive), [sessions])
   const periodSessions = useMemo(
     () =>
       period === 'total'
-        ? sessions
-        : filterByMonth(sessions, monthCursor.getFullYear(), monthCursor.getMonth()),
-    [sessions, period, monthCursor],
+        ? finishedSessions
+        : filterByMonth(finishedSessions, monthCursor.getFullYear(), monthCursor.getMonth()),
+    [finishedSessions, period, monthCursor],
   )
   const periodFuelEntries = useMemo(
     () =>
@@ -61,6 +66,27 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
   const combinedStats = useMemo(
     () => computeCombinedStats(periodSessions, periodFuelEntries),
     [periodSessions, periodFuelEntries],
+  )
+
+  const efficiencySummary = useMemo(() => {
+    const points = computeEfficiencyPoints(sessions, fuelEntries, filter, { batteryCapacityKwh })
+    const inPeriod =
+      period === 'total'
+        ? points
+        : filterByMonth(points, monthCursor.getFullYear(), monthCursor.getMonth())
+    return summarizeEfficiency(inPeriod)
+  }, [sessions, fuelEntries, filter, period, monthCursor, batteryCapacityKwh])
+  const costPerKm =
+    efficiencySummary.costPer100Km !== null ? efficiencySummary.costPer100Km / 100 : null
+
+  const costPerKmCard = costPerKm !== null && (
+    <div className="card">
+      <div className="muted">Custo médio por km</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{formatCurrency(costPerKm)}</div>
+      <div className="muted">
+        Baseado em {efficiencySummary.kmDriven.toLocaleString('pt-PT')} km percorridos
+      </div>
+    </div>
   )
 
   const hasDataInPeriod = periodSessions.length > 0 || periodFuelEntries.length > 0
@@ -156,17 +182,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
             </div>
           </div>
 
-          {combinedStats.averageCostPerKm != null && combinedStats.totalKmDriven != null && (
-            <div className="card">
-              <div className="muted">Custo médio por km</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                {formatCurrency(combinedStats.averageCostPerKm)}
-              </div>
-              <div className="muted">
-                Baseado em {combinedStats.totalKmDriven.toLocaleString('pt-PT')} km percorridos
-              </div>
-            </div>
-          )}
+          {costPerKmCard}
         </div>
       )}
 
@@ -213,17 +229,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
                 </div>
               )}
 
-              {electricStats.averageCostPerKm != null && electricStats.totalKmDriven != null && (
-                <div className="card">
-                  <div className="muted">Custo médio por km</div>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                    {formatCurrency(electricStats.averageCostPerKm)}
-                  </div>
-                  <div className="muted">
-                    Baseado em {electricStats.totalKmDriven.toLocaleString('pt-PT')} km percorridos
-                  </div>
-                </div>
-              )}
+              {costPerKmCard}
             </>
           )}
         </div>
@@ -261,6 +267,8 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
                   </div>
                 </div>
               )}
+
+              {costPerKmCard}
             </>
           )}
         </div>
@@ -273,6 +281,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
           filter={filter}
           period={period}
           monthCursor={monthCursor}
+          batteryCapacityKwh={batteryCapacityKwh}
         />
       )}
 
@@ -283,6 +292,7 @@ export function StatsScreen({ sessions, fuelEntries }: StatsScreenProps) {
           filter={filter}
           period={period}
           monthCursor={monthCursor}
+          batteryCapacityKwh={batteryCapacityKwh}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { Tariff } from '../../domain/types'
@@ -62,6 +62,45 @@ describe('SessionForm', () => {
     await user.click(screen.getByRole('button', { name: /Cancelar/ }))
 
     expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('saves the km driven in electric mode', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SessionForm carId="car-1" tariffs={[]} onSubmit={onSubmit} onCancel={() => {}} />)
+
+    await user.type(screen.getByLabelText(/Energia carregada/), '10')
+    await user.type(screen.getByLabelText(/Km em modo elétrico/), '150')
+    await user.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    expect(onSubmit.mock.calls[0][0].electricKm).toBe(150)
+  })
+
+  it('leaves the electric km empty when not given', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SessionForm carId="car-1" tariffs={[]} onSubmit={onSubmit} onCancel={() => {}} />)
+
+    await user.type(screen.getByLabelText(/Energia carregada/), '10')
+    await user.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    expect(onSubmit.mock.calls[0][0].electricKm).toBeNull()
+  })
+
+  it('rejects negative km in electric mode', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SessionForm carId="car-1" tariffs={[]} onSubmit={onSubmit} onCancel={() => {}} />)
+
+    await user.type(screen.getByLabelText(/Energia carregada/), '10')
+    await user.type(screen.getByLabelText(/Km em modo elétrico/), '-3')
+    // The browser's own min=0 check would stop a real click first; this is the backstop.
+    fireEvent.submit(screen.getByRole('form', { name: 'Registo de carregamento' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Os km em modo elétrico não podem ser negativos.',
+    )
     expect(onSubmit).not.toHaveBeenCalled()
   })
 })

@@ -24,6 +24,8 @@ export interface BackupReminderSettings {
 export interface CarSettings {
   carName: string
   tariffs: Tariff[]
+  /** Usable battery capacity in kWh, given by the user. Null falls back to the automatic estimate. */
+  batteryCapacityKwh: number | null
   backupReminder: BackupReminderSettings
 }
 
@@ -40,6 +42,8 @@ export interface ChargingSession {
   batteryStartPct: number | null
   batteryEndPct: number | null
   odometerKm: number | null
+  /** Km driven in electric mode since the previous charge, read from the trip computer. Absent in old records. */
+  electricKm?: number | null
   location: string | null
   chargerType: ChargerType | null
   notes: string | null
@@ -58,6 +62,8 @@ export interface FuelEntry {
   liters: number
   cost: number
   odometerKm: number | null
+  /** False for a partial fill-up. Absent in old records, which count as a full tank. */
+  fullTank?: boolean | null
   location: string | null
   notes: string | null
   createdAt: string

@@ -1,6 +1,7 @@
 import type { CarSettings, ChargingSession, FuelEntry } from '../../domain/types'
 import { AppUpdateSection } from './AppUpdateSection'
 import { BackupSection } from './BackupSection'
+import { BatterySection } from './BatterySection'
 import { DangerZoneSection } from './DangerZoneSection'
 import { TariffEditor } from './TariffEditor'
 
@@ -41,6 +42,8 @@ export function SettingsScreen({
         tariffs={settings.tariffs}
         onChange={(tariffs) => onSettingsChange({ ...settings, tariffs })}
       />
+
+      <BatterySection settings={settings} sessions={sessions} onSettingsChange={onSettingsChange} />
 
       <BackupSection
         settings={settings}

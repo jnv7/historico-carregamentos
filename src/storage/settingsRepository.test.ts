@@ -15,6 +15,7 @@ describe('settingsRepository', () => {
     const settings: CarSettings = {
       carName: 'Tesla Model 3',
       tariffs: [],
+      batteryCapacityKwh: 52,
       backupReminder: {
         enabled: true,
         intervalDays: 14,
@@ -50,5 +51,14 @@ describe('settingsRepository', () => {
     localStorage.setItem('historico-carregamentos:settings', '{not json')
 
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('fills in the battery capacity for settings saved before it existed', () => {
+    localStorage.setItem(
+      'historico-carregamentos:settings',
+      JSON.stringify({ carName: 'Antigo', tariffs: [] }),
+    )
+
+    expect(loadSettings().batteryCapacityKwh).toBeNull()
   })
 })

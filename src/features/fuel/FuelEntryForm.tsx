@@ -48,6 +48,7 @@ export function FuelEntryForm({
   const [odometerKm, setOdometerKm] = useState(
     initialEntry?.odometerKm != null ? String(initialEntry.odometerKm) : '',
   )
+  const [fullTank, setFullTank] = useState(initialEntry?.fullTank !== false)
   const [location, setLocation] = useState(initialEntry?.location ?? '')
   const [notes, setNotes] = useState(initialEntry?.notes ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export function FuelEntryForm({
       liters: litersValue,
       cost: costValue,
       odometerKm: odometerKm.trim() !== '' ? Number(odometerKm) : null,
+      fullTank,
       location: location.trim() !== '' ? location.trim() : null,
       notes: notes.trim() !== '' ? notes.trim() : null,
     })
@@ -144,6 +146,16 @@ export function FuelEntryForm({
           />
         </div>
       </div>
+
+      <label htmlFor="fuel-full-tank" className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <input
+          id="fuel-full-tank"
+          type="checkbox"
+          checked={fullTank}
+          onChange={(e) => setFullTank(e.target.checked)}
+        />
+        Depósito cheio (atestei)
+      </label>
 
       <details>
         <summary>Mais detalhes (opcional)</summary>

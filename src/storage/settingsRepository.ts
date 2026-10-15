@@ -6,6 +6,7 @@ const KEY = 'historico-carregamentos:settings'
 export const DEFAULT_SETTINGS: CarSettings = {
   carName: 'O meu carro',
   tariffs: [],
+  batteryCapacityKwh: null,
   backupReminder: {
     enabled: false,
     intervalDays: 30,

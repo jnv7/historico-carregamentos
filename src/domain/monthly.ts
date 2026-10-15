@@ -2,6 +2,7 @@ import { filterByMonth } from './calendar'
 import {
   computeEfficiencyPoints,
   summarizeEfficiency,
+  type EfficiencyOptions,
   type EfficiencyScope,
   type EfficiencySummary,
 } from './efficiency'
@@ -55,11 +56,12 @@ export function computeMonthlySummaries(
   sessions: ChargingSession[],
   fuelEntries: FuelEntry[],
   months: YearMonth[],
+  options: EfficiencyOptions = { batteryCapacityKwh: null },
 ): MonthSummary[] {
   const pointsByScope = {
-    electric: computeEfficiencyPoints(sessions, fuelEntries, 'electric'),
-    fuel: computeEfficiencyPoints(sessions, fuelEntries, 'fuel'),
-    all: computeEfficiencyPoints(sessions, fuelEntries, 'all'),
+    electric: computeEfficiencyPoints(sessions, fuelEntries, 'electric', options),
+    fuel: computeEfficiencyPoints(sessions, fuelEntries, 'fuel', options),
+    all: computeEfficiencyPoints(sessions, fuelEntries, 'all', options),
   }
 
   return months.map(({ year, month }) => {
