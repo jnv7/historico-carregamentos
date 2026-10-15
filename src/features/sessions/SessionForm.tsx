@@ -1,16 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { DateTimeFields } from '../../components/DateTimeFields'
+import { CHARGER_TYPE_LABELS } from '../../domain/chargerTypes'
 import { combineDateAndTime, toDateInputValue, toTimeInputValue } from '../../domain/datetime'
 import { inferCost } from '../../domain/tariffs'
 import type { ChargerType, ChargingSession, Tariff } from '../../domain/types'
 import type { NewChargingSession } from '../../hooks/useSessions'
-
-const CHARGER_TYPE_LABELS: Record<ChargerType, string> = {
-  home: 'Casa',
-  public_ac: 'Público AC',
-  public_dc: 'Público DC (rápido)',
-  other: 'Outro',
-}
 
 export interface SessionFormProps {
   carId: string
@@ -37,7 +31,9 @@ export function SessionForm({
 
   const [dateValue, setDateValue] = useState(toDateInputValue(startAtDate))
   const [timeValue, setTimeValue] = useState(toTimeInputValue(startAtDate))
-  const [energyKwh, setEnergyKwh] = useState(initialSession ? String(initialSession.energyKwh) : '')
+  const [energyKwh, setEnergyKwh] = useState(
+    initialSession && initialSession.energyKwh > 0 ? String(initialSession.energyKwh) : '',
+  )
   const [cost, setCost] = useState(initialSession?.cost != null ? String(initialSession.cost) : '')
   const [batteryStartPct, setBatteryStartPct] = useState(
     initialSession?.batteryStartPct != null ? String(initialSession.batteryStartPct) : '',
@@ -60,6 +56,13 @@ export function SessionForm({
     if (!dateValue || !energy || energy <= 0) return null
     return inferCost(tariffs, combineDateAndTime(dateValue, timeValue), energy)
   }, [tariffs, dateValue, timeValue, energyKwh])
+
+  const hasInitialDetails =
+    initialSession?.batteryStartPct != null ||
+    initialSession?.odometerKm != null ||
+    initialSession?.chargerType != null ||
+    initialSession?.location != null ||
+    initialSession?.notes != null
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -134,7 +137,7 @@ export function SessionForm({
         />
       </div>
 
-      <details>
+      <details open={hasInitialDetails}>
         <summary>Mais detalhes (opcional)</summary>
         <div className="stack" style={{ marginTop: 12 }}>
           <div className="row">

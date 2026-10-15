@@ -5,7 +5,7 @@ Webapp para telemóvel para registar um diário de carregamentos elétricos do c
 ## Funcionalidades
 
 - **Registos num calendário** — cada carregamento fica associado a um dia; só a data e a energia (kWh) são obrigatórias, tudo o resto é opcional.
-- **Carregamento "live"** — começar agora, terminar mais tarde e só nessa altura preencher os detalhes.
+- **Carregamento "live"** — começar agora e terminar mais tarde; os detalhes já conhecidos (bateria inicial, km, carregador, local) podem ser indicados logo no início ou durante o carregamento.
 - **Tarifas** — até 3 tarifas com intervalo horário; o custo é sugerido automaticamente com base na tarifa ativa à hora do carregamento (mas pode ser sempre substituído manualmente).
 - **Estatísticas** — totais e médias de energia e custo, custo médio por kWh e por km (a partir da quilometragem registada).
 - **Cópia de segurança** — exportar/importar todos os dados num ficheiro `.json`, com lembrete periódico configurável.
