@@ -103,4 +103,19 @@ describe('SessionForm', () => {
     )
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('hides the km driven in electric mode for a fully electric car', () => {
+    render(
+      <SessionForm
+        carId="car-1"
+        tariffs={[]}
+        fullyElectric
+        onSubmit={() => {}}
+        onCancel={() => {}}
+      />,
+    )
+
+    expect(screen.queryByLabelText(/Km em modo elétrico/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Quilometragem (km)')).toBeInTheDocument()
+  })
 })

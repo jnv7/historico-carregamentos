@@ -38,6 +38,20 @@ export function SettingsScreen({
         />
       </div>
 
+      <label htmlFor="fully-electric" className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <input
+          id="fully-electric"
+          type="checkbox"
+          checked={settings.fullyElectric}
+          onChange={(e) => onSettingsChange({ ...settings, fullyElectric: e.target.checked })}
+        />
+        Carro totalmente elétrico
+      </label>
+      <p className="muted" style={{ marginTop: -8 }}>
+        Esconde o que só interessa a híbridos: abastecimentos, estatísticas de combustível e os km
+        em modo elétrico. Os registos de combustível já guardados não se apagam.
+      </p>
+
       <TariffEditor
         tariffs={settings.tariffs}
         onChange={(tariffs) => onSettingsChange({ ...settings, tariffs })}

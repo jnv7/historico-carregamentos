@@ -38,6 +38,7 @@ export interface MonthlyChartsProps {
   period: Period
   monthCursor: Date
   batteryCapacityKwh: number | null
+  fullyElectric?: boolean
 }
 
 /** Month-by-month evolution: the last 12 months up to the selected one, or every month for Total. */
@@ -48,6 +49,7 @@ export function MonthlyCharts({
   period,
   monthCursor,
   batteryCapacityKwh,
+  fullyElectric = false,
 }: MonthlyChartsProps) {
   const months = useMemo(
     () =>
@@ -57,8 +59,12 @@ export function MonthlyCharts({
     [period, monthCursor, sessions, fuelEntries],
   )
   const summaries = useMemo(
-    () => computeMonthlySummaries(sessions, fuelEntries, months, { batteryCapacityKwh }),
-    [sessions, fuelEntries, months, batteryCapacityKwh],
+    () =>
+      computeMonthlySummaries(sessions, fuelEntries, months, {
+        batteryCapacityKwh,
+        ignoreElectricKm: fullyElectric,
+      }),
+    [sessions, fuelEntries, months, batteryCapacityKwh, fullyElectric],
   )
   if (months.length === 0) return null
 

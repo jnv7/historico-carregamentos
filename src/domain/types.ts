@@ -26,6 +26,8 @@ export interface CarSettings {
   tariffs: Tariff[]
   /** Usable battery capacity in kWh, given by the user. Null falls back to the automatic estimate. */
   batteryCapacityKwh: number | null
+  /** A fully electric car hides what only matters for hybrids (fuel, km driven in electric mode). */
+  fullyElectric: boolean
   backupReminder: BackupReminderSettings
 }
 

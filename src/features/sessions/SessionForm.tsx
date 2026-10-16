@@ -12,6 +12,8 @@ export interface SessionFormProps {
   initialSession?: ChargingSession
   defaultStartAt?: Date
   submitLabel?: string
+  /** Hides what only matters for hybrids. */
+  fullyElectric?: boolean
   onSubmit: (values: NewChargingSession) => void
   onCancel: () => void
 }
@@ -22,6 +24,7 @@ export function SessionForm({
   initialSession,
   defaultStartAt,
   submitLabel = 'Guardar',
+  fullyElectric = false,
   onSubmit,
   onCancel,
 }: SessionFormProps) {
@@ -188,20 +191,22 @@ export function SessionForm({
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="electric-km">Km em modo elétrico desde o carregamento anterior</label>
-            <input
-              id="electric-km"
-              type="number"
-              inputMode="numeric"
-              min="0"
-              value={electricKm}
-              onChange={(e) => setElectricKm(e.target.value)}
-            />
-            <small className="muted">
-              Vê no computador de bordo. Serve para separar o consumo elétrico do de combustível.
-            </small>
-          </div>
+          {!fullyElectric && (
+            <div className="field">
+              <label htmlFor="electric-km">Km em modo elétrico desde o carregamento anterior</label>
+              <input
+                id="electric-km"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={electricKm}
+                onChange={(e) => setElectricKm(e.target.value)}
+              />
+              <small className="muted">
+                Vê no computador de bordo. Serve para separar o consumo elétrico do de combustível.
+              </small>
+            </div>
+          )}
 
           <div className="field">
             <label htmlFor="location">Local</label>

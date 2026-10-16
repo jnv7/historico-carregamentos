@@ -47,4 +47,28 @@ describe('SettingsScreen', () => {
       screen.getByRole('button', { name: 'Procurar atualizações e recarregar' }),
     ).toBeInTheDocument()
   })
+
+  it('turns on the fully electric car setting', async () => {
+    const user = userEvent.setup()
+    const onSettingsChange = vi.fn()
+    render(
+      <SettingsScreen
+        settings={DEFAULT_SETTINGS}
+        sessions={[]}
+        fuelEntries={[]}
+        onSettingsChange={onSettingsChange}
+        onRestoreSessions={() => {}}
+        onRestoreFuelEntries={() => {}}
+        onDeleteAll={() => {}}
+      />,
+    )
+
+    const checkbox = screen.getByLabelText('Carro totalmente elétrico')
+    expect(checkbox).not.toBeChecked()
+    await user.click(checkbox)
+
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fullyElectric: true }),
+    )
+  })
 })

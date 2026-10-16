@@ -173,4 +173,11 @@ describe('CalendarScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Apagar abastecimento' }))
     expect(onDeleteFuelEntry).toHaveBeenCalledWith('existing-fuel')
   })
+
+  it('hides the fuel button for a fully electric car', () => {
+    renderCalendar({ fullyElectric: true })
+
+    expect(screen.getByRole('button', { name: /⚡ Carregamento/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /⛽ Abastecimento/ })).not.toBeInTheDocument()
+  })
 })

@@ -33,6 +33,7 @@ interface FormState {
 export interface CalendarScreenProps {
   carId: string
   tariffs: Tariff[]
+  fullyElectric?: boolean
   sessions: ChargingSession[]
   fuelEntries: FuelEntry[]
   onAddSession: (session: NewChargingSession) => void
@@ -46,6 +47,7 @@ export interface CalendarScreenProps {
 export function CalendarScreen({
   carId,
   tariffs,
+  fullyElectric = false,
   sessions,
   fuelEntries,
   onAddSession,
@@ -240,14 +242,16 @@ export function CalendarScreen({
           >
             ⚡ Carregamento
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ flex: 1 }}
-            onClick={() => openAddForm('fuel')}
-          >
-            ⛽ Abastecimento
-          </button>
+          {!fullyElectric && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              onClick={() => openAddForm('fuel')}
+            >
+              ⛽ Abastecimento
+            </button>
+          )}
         </div>
 
         {selectedEntries.length === 0 && <p className="muted">Sem registos neste dia.</p>}
@@ -306,6 +310,7 @@ export function CalendarScreen({
         <Modal title={modalTitle} onClose={closeForm}>
           {formState.kind === 'electric' ? (
             <SessionForm
+              fullyElectric={fullyElectric}
               carId={carId}
               tariffs={tariffs}
               initialSession={(formState.entry as ChargingSession | null) ?? undefined}

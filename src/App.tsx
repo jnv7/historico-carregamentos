@@ -91,6 +91,7 @@ export default function App() {
           <CalendarScreen
             carId={DEFAULT_CAR_ID}
             tariffs={settings.tariffs}
+            fullyElectric={settings.fullyElectric}
             sessions={sessions}
             fuelEntries={fuelEntries}
             onAddSession={addSession}
@@ -105,6 +106,7 @@ export default function App() {
           <LiveScreen
             carId={DEFAULT_CAR_ID}
             tariffs={settings.tariffs}
+            fullyElectric={settings.fullyElectric}
             sessions={sessions}
             onAdd={addSession}
             onUpdate={updateSession}
@@ -115,6 +117,7 @@ export default function App() {
             sessions={sessions}
             fuelEntries={fuelEntries}
             batteryCapacityKwh={batteryCapacityKwh}
+            fullyElectric={settings.fullyElectric}
           />
         )}
         {tab === 'settings' && (

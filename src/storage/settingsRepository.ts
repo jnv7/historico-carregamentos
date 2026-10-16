@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: CarSettings = {
   carName: 'O meu carro',
   tariffs: [],
   batteryCapacityKwh: null,
+  fullyElectric: false,
   backupReminder: {
     enabled: false,
     intervalDays: 30,

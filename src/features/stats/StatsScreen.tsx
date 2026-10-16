@@ -28,11 +28,19 @@ export interface StatsScreenProps {
   fuelEntries: FuelEntry[]
   /** Battery capacity used to work out energy from the battery percentages; null when unknown. */
   batteryCapacityKwh: number | null
+  /** Only the electric view exists for a fully electric car. */
+  fullyElectric?: boolean
 }
 
-export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: StatsScreenProps) {
+export function StatsScreen({
+  sessions,
+  fuelEntries,
+  batteryCapacityKwh,
+  fullyElectric = false,
+}: StatsScreenProps) {
   const [view, setView] = useState<StatsView>('summary')
-  const [filter, setFilter] = useState<StatsFilter>('all')
+  const [chosenFilter, setFilter] = useState<StatsFilter>('all')
+  const filter: StatsFilter = fullyElectric ? 'electric' : chosenFilter
   const [period, setPeriod] = useState<Period>('month')
   const [monthCursor, setMonthCursor] = useState(() => {
     const today = new Date()
@@ -69,13 +77,16 @@ export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: Stats
   )
 
   const efficiencySummary = useMemo(() => {
-    const points = computeEfficiencyPoints(sessions, fuelEntries, filter, { batteryCapacityKwh })
+    const points = computeEfficiencyPoints(sessions, fuelEntries, filter, {
+      batteryCapacityKwh,
+      ignoreElectricKm: fullyElectric,
+    })
     const inPeriod =
       period === 'total'
         ? points
         : filterByMonth(points, monthCursor.getFullYear(), monthCursor.getMonth())
     return summarizeEfficiency(inPeriod)
-  }, [sessions, fuelEntries, filter, period, monthCursor, batteryCapacityKwh])
+  }, [sessions, fuelEntries, filter, period, monthCursor, batteryCapacityKwh, fullyElectric])
   const costPerKm =
     efficiencySummary.costPer100Km !== null ? efficiencySummary.costPer100Km / 100 : null
 
@@ -144,23 +155,25 @@ export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: Stats
         </button>
       </div>
 
-      <div className="row" style={{ marginBottom: 16 }}>
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className="btn"
-            style={{
-              flex: 1,
-              ...(filter === f.id ? SELECTED_BUTTON_STYLE : {}),
-            }}
-            aria-pressed={filter === f.id}
-            onClick={() => setFilter(f.id)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {!fullyElectric && (
+        <div className="row" style={{ marginBottom: 16 }}>
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className="btn"
+              style={{
+                flex: 1,
+                ...(filter === f.id ? SELECTED_BUTTON_STYLE : {}),
+              }}
+              aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!hasDataInPeriod && <p className="muted">{emptyMessage}</p>}
 
@@ -282,6 +295,7 @@ export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: Stats
           period={period}
           monthCursor={monthCursor}
           batteryCapacityKwh={batteryCapacityKwh}
+          fullyElectric={fullyElectric}
         />
       )}
 
@@ -293,6 +307,7 @@ export function StatsScreen({ sessions, fuelEntries, batteryCapacityKwh }: Stats
           period={period}
           monthCursor={monthCursor}
           batteryCapacityKwh={batteryCapacityKwh}
+          fullyElectric={fullyElectric}
         />
       )}
     </div>

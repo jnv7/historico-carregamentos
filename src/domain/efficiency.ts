@@ -6,6 +6,8 @@ export type EfficiencyScope = 'electric' | 'fuel' | 'all'
 export interface EfficiencyOptions {
   /** Usable battery capacity in kWh; null turns off the battery-percentage calculation. */
   batteryCapacityKwh: number | null
+  /** For a fully electric car every km is electric, so the "km in electric mode" figures are ignored. */
+  ignoreElectricKm?: boolean
 }
 
 const DEFAULT_OPTIONS: EfficiencyOptions = { batteryCapacityKwh: null }
@@ -195,7 +197,12 @@ export function computeEfficiencyPoints(
 
       let distanceKm = kmDriven
       let kmBasis: EfficiencyPoint['kmBasis'] = 'total'
-      if (scope === 'electric' && electricKm !== null && electricKm > 0) {
+      if (
+        scope === 'electric' &&
+        !options.ignoreElectricKm &&
+        electricKm !== null &&
+        electricKm > 0
+      ) {
         distanceKm = electricKm
         kmBasis = 'mode'
       }

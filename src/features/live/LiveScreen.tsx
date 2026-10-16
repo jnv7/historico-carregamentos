@@ -12,12 +12,20 @@ import { findLiveSession } from './liveSession'
 export interface LiveScreenProps {
   carId: string
   tariffs: Tariff[]
+  fullyElectric?: boolean
   sessions: ChargingSession[]
   onAdd: (session: NewChargingSession) => void
   onUpdate: (id: string, changes: Partial<ChargingSession>) => void
 }
 
-export function LiveScreen({ carId, tariffs, sessions, onAdd, onUpdate }: LiveScreenProps) {
+export function LiveScreen({
+  carId,
+  tariffs,
+  fullyElectric = false,
+  sessions,
+  onAdd,
+  onUpdate,
+}: LiveScreenProps) {
   const liveSession = findLiveSession(sessions)
   const [now, setNow] = useState(() => new Date())
   const [finishOpen, setFinishOpen] = useState(false)
@@ -210,6 +218,7 @@ export function LiveScreen({ carId, tariffs, sessions, onAdd, onUpdate }: LiveSc
           <SessionForm
             carId={carId}
             tariffs={tariffs}
+            fullyElectric={fullyElectric}
             initialSession={liveSession}
             submitLabel="Terminar"
             onSubmit={handleFinishSubmit}

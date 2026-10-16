@@ -20,6 +20,7 @@ export interface EntryEfficiencyViewProps {
   period: Period
   monthCursor: Date
   batteryCapacityKwh: number | null
+  fullyElectric?: boolean
 }
 
 /** Efficiency of each entry on its own, compared with the period's average. */
@@ -30,11 +31,16 @@ export function EntryEfficiencyView({
   period,
   monthCursor,
   batteryCapacityKwh,
+  fullyElectric = false,
 }: EntryEfficiencyViewProps) {
   // Computed over everything, then filtered, so a month's first entry still has a previous reading.
   const allPoints = useMemo(
-    () => computeEfficiencyPoints(sessions, fuelEntries, filter, { batteryCapacityKwh }),
-    [sessions, fuelEntries, filter, batteryCapacityKwh],
+    () =>
+      computeEfficiencyPoints(sessions, fuelEntries, filter, {
+        batteryCapacityKwh,
+        ignoreElectricKm: fullyElectric,
+      }),
+    [sessions, fuelEntries, filter, batteryCapacityKwh, fullyElectric],
   )
   const points = useMemo(
     () =>

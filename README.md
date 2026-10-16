@@ -8,6 +8,7 @@ Webapp para telemóvel para registar um diário de carregamentos elétricos do c
 - **Carregamento "live"** — começar agora e terminar mais tarde; os detalhes já conhecidos (bateria inicial, km, carregador, local) podem ser indicados logo no início ou durante o carregamento.
 - **Tarifas** — até 3 tarifas com intervalo horário; o custo é sugerido automaticamente com base na tarifa ativa à hora do carregamento (mas pode ser sempre substituído manualmente).
 - **Estatísticas** — totais e médias de energia, combustível e custo; consumo e custo por 100 km calculados pela % da bateria (quando registada), só entre depósitos cheios no combustível e, num híbrido plug-in, separando os km feitos em elétrico.
+- **Carro totalmente elétrico** — opção nas Definições (desligada por defeito) que esconde o que só interessa a híbridos: abastecimentos, estatísticas de combustível e km em modo elétrico.
 - **Novidades** — depois de cada atualização, uma janela mostra o que mudou (gerado a partir dos commits); o histórico completo está nas Definições.
 - **Cópia de segurança** — exportar/importar todos os dados num ficheiro `.json`, com lembrete periódico configurável.
 - **Apagar tudo** — com confirmação explícita.

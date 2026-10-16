@@ -16,6 +16,7 @@ describe('settingsRepository', () => {
       carName: 'Tesla Model 3',
       tariffs: [],
       batteryCapacityKwh: 52,
+      fullyElectric: true,
       backupReminder: {
         enabled: true,
         intervalDays: 14,
@@ -60,5 +61,14 @@ describe('settingsRepository', () => {
     )
 
     expect(loadSettings().batteryCapacityKwh).toBeNull()
+  })
+
+  it('is not fully electric by default, also for settings saved before it existed', () => {
+    localStorage.setItem(
+      'historico-carregamentos:settings',
+      JSON.stringify({ carName: 'Antigo', tariffs: [] }),
+    )
+
+    expect(loadSettings().fullyElectric).toBe(false)
   })
 })

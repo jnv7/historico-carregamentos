@@ -194,4 +194,22 @@ describe('StatsScreen', () => {
     )
     expect(screen.getByText('Baseado em 300 km percorridos')).toBeInTheDocument()
   })
+
+  it('only offers the electric view for a fully electric car', () => {
+    const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
+    const fuelEntries = [makeFuelEntry({ liters: 30, cost: 45 })]
+    render(
+      <StatsScreen
+        sessions={sessions}
+        fuelEntries={fuelEntries}
+        batteryCapacityKwh={null}
+        fullyElectric
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Combustível' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ambos' })).not.toBeInTheDocument()
+    expect(screen.getByText('10 kWh')).toBeInTheDocument()
+    expect(screen.queryByText('30 L')).not.toBeInTheDocument()
+  })
 })

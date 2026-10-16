@@ -320,6 +320,25 @@ describe('km driven in electric mode', () => {
   })
 })
 
+describe('a fully electric car', () => {
+  it('ignores the km in electric mode left over from before', () => {
+    const first = makeSession({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 })
+    const second = makeSession({
+      startAt: '2024-01-05T10:00:00Z',
+      odometerKm: 1300,
+      energyKwh: 30,
+      electricKm: 200,
+    })
+
+    const [point] = computeEfficiencyPoints([first, second], [], 'electric', {
+      batteryCapacityKwh: null,
+      ignoreElectricKm: true,
+    })
+
+    expect(point).toMatchObject({ distanceKm: 300, kmBasis: 'total', consumptionPer100Km: 10 })
+  })
+})
+
 describe('fuel consumption of a plug-in hybrid', () => {
   const first = makeFuelEntry({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 })
 
