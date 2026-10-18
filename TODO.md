@@ -1331,7 +1331,7 @@ Ficheiros: altera `src/domain/stats.ts`, `src/domain/stats.test.ts`, `src/featur
 
 **Pronto quando:** todos os testes passam.
 
-### - [ ] D3. Resumo por tipo de carregador (só cálculo)
+### - [x] D3. Resumo por tipo de carregador (só cálculo)
 
 Ficheiros: novo `src/domain/chargerBreakdown.ts` · novo `src/domain/chargerBreakdown.test.ts`
 
