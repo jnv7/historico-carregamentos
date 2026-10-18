@@ -1448,7 +1448,7 @@ Ficheiros: altera `src/domain/efficiency.ts`, `src/domain/format.ts`, `src/domai
 
 **Pronto quando:** todos os testes passam.
 
-### - [ ] D6. Km percorridos e estimativa do custo do mês
+### - [x] D6. Km percorridos e estimativa do custo do mês
 
 Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
 

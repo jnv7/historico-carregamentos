@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { formatCurrency } from '../../domain/format'
 import { DEFAULT_CAR_ID, type ChargingSession, type FuelEntry } from '../../domain/types'
 import { StatsScreen } from './StatsScreen'
@@ -49,6 +49,8 @@ function makeFuelEntry(overrides: Partial<FuelEntry>): FuelEntry {
 }
 
 describe('StatsScreen', () => {
+  afterEach(() => vi.useRealTimers())
+
   it('shows an empty state for the current month with no entries', () => {
     render(<StatsScreen sessions={[]} fuelEntries={[]} batteryCapacityKwh={null} />)
     expect(screen.getByText('Sem registos neste mês.')).toBeInTheDocument()
@@ -235,6 +237,36 @@ describe('StatsScreen', () => {
     )
 
     expect(screen.queryByText('Onde carregaste')).not.toBeInTheDocument()
+  })
+
+  it('projects the cost to the end of the current month', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 18, 12))
+    const sessions = [makeSession({ startAt: new Date(2026, 9, 5, 10).toISOString(), cost: 18 })]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    expect(screen.getByText('Ao ritmo atual, cerca de 31 € no fim do mês')).toBeInTheDocument()
+  })
+
+  it('does not project the cost in the first days of the month', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 3, 12))
+    const sessions = [makeSession({ startAt: new Date(2026, 9, 2, 10).toISOString(), cost: 18 })]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    expect(screen.queryByText(/Ao ritmo atual/)).not.toBeInTheDocument()
+  })
+
+  it('shows the km driven between odometer readings', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 18, 12))
+    const sessions = [
+      makeSession({ startAt: new Date(2026, 9, 2, 10).toISOString(), odometerKm: 1000 }),
+      makeSession({ startAt: new Date(2026, 9, 9, 10).toISOString(), odometerKm: 1300 }),
+    ]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    expect(screen.getByText('Km percorridos').nextSibling).toHaveTextContent('300 km')
   })
 
   it('only offers the electric view for a fully electric car', () => {

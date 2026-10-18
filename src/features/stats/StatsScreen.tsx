@@ -106,6 +106,33 @@ export function StatsScreen({
     [periodSessions, finishedSessions],
   )
 
+  // Halfway through a month there is enough to project; before day 7 the figure would be wild.
+  const now = new Date()
+  const isCurrentMonth =
+    period === 'month' &&
+    monthCursor.getFullYear() === now.getFullYear() &&
+    monthCursor.getMonth() === now.getMonth()
+  function monthEndEstimate(cost: number) {
+    if (!isCurrentMonth || now.getDate() < 7 || cost <= 0) return null
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const estimate = Math.round((cost * daysInMonth) / now.getDate())
+    return (
+      <div className="muted">
+        Ao ritmo atual, cerca de {formatDecimal(estimate, 0)} € no fim do mês
+      </div>
+    )
+  }
+
+  const kmDrivenCard = efficiencySummary.kmDriven > 0 && (
+    <div className="card">
+      <div className="muted">Km percorridos</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+        {formatDecimal(efficiencySummary.kmDriven, 0)} km
+      </div>
+      <div className="muted">Entre leituras do conta-quilómetros</div>
+    </div>
+  )
+
   const costPer100KmCard = efficiencySummary.costPer100Km !== null && (
     <div className="card">
       <div className="muted">Custo por 100 km</div>
@@ -197,6 +224,8 @@ export function StatsScreen({
 
       {hasDataInPeriod && view === 'summary' && filter === 'all' && (
         <div className="stack">
+          {kmDrivenCard}
+
           <div className="card">
             <div className="muted">Registos</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{combinedStats.count}</div>
@@ -211,6 +240,7 @@ export function StatsScreen({
               ⚡ {formatCurrency(combinedStats.electricCost)} · ⛽{' '}
               {formatCurrency(combinedStats.fuelCost)}
             </div>
+            {monthEndEstimate(combinedStats.totalCost)}
           </div>
 
           {costPer100KmCard}
@@ -222,6 +252,8 @@ export function StatsScreen({
           {electricStats.count === 0 && <p className="muted">Sem carregamentos neste período.</p>}
           {electricStats.count > 0 && (
             <>
+              {fullyElectric && kmDrivenCard}
+
               <div className="card">
                 <div className="muted">Carregamentos</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{electricStats.count}</div>
@@ -243,6 +275,7 @@ export function StatsScreen({
                 <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
                   {formatCurrency(electricStats.totalCost)}
                 </div>
+                {monthEndEstimate(electricStats.totalCost)}
                 {electricStats.sessionsWithCost < electricStats.count && (
                   <div className="muted">
                     {electricStats.sessionsWithCost} de {electricStats.count} carregamentos têm
@@ -356,6 +389,7 @@ export function StatsScreen({
                 <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
                   {formatCurrency(fuelStats.totalCost)}
                 </div>
+                {monthEndEstimate(fuelStats.totalCost)}
               </div>
 
               {fuelStats.averageCostPerLiter != null && (
