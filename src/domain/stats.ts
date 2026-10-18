@@ -39,7 +39,9 @@ export function computeElectricStats(sessions: ChargingSession[]): ElectricStats
   const totalCost = round2(sum(withCost.map((s) => s.cost)))
   const energyWithCost = sum(withCost.map((s) => s.energyKwh))
   const averageCostPerKwh =
-    withCost.length > 0 && energyWithCost > 0 ? round2(totalCost / energyWithCost) : null
+    withCost.length > 0 && energyWithCost > 0
+      ? sum(withCost.map((s) => s.cost)) / energyWithCost
+      : null
 
   return {
     count,
@@ -55,7 +57,8 @@ export function computeFuelStats(entries: FuelEntry[]): FuelStats {
   const count = entries.length
   const totalLiters = round2(sum(entries.map((e) => e.liters)))
   const totalCost = round2(sum(entries.map((e) => e.cost)))
-  const averageCostPerLiter = totalLiters > 0 ? round2(totalCost / totalLiters) : null
+  const averageCostPerLiter =
+    totalLiters > 0 ? sum(entries.map((e) => e.cost)) / sum(entries.map((e) => e.liters)) : null
 
   return { count, totalLiters, totalCost, averageCostPerLiter }
 }

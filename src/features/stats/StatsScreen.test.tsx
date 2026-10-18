@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { formatCurrency } from '../../domain/format'
@@ -175,7 +175,7 @@ describe('StatsScreen', () => {
     expect(screen.getByText('Carregamentos').nextSibling).toHaveTextContent('1')
   })
 
-  it('uses the same cost per km as the per-entry view, ignoring km from other months', async () => {
+  it('uses the same cost per 100 km as the per-entry view, ignoring km from other months', async () => {
     const user = userEvent.setup()
     const month = (offset: number, day: number) =>
       new Date(today.getFullYear(), today.getMonth() + offset, day, 10).toISOString()
@@ -189,10 +189,10 @@ describe('StatsScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Elétrico' }))
 
     // This month: 20 € over the 300 km since last month's reading.
-    expect(screen.getByText('Custo médio por km').nextSibling?.textContent).toBe(
-      formatCurrency(20 / 300),
+    const card = screen.getByText('Baseado em 300 km percorridos').parentElement!
+    expect(within(card).getByText('Custo por 100 km').nextSibling?.textContent).toBe(
+      formatCurrency(2000 / 300),
     )
-    expect(screen.getByText('Baseado em 300 km percorridos')).toBeInTheDocument()
   })
 
   it('only offers the electric view for a fully electric car', () => {

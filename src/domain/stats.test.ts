@@ -64,7 +64,7 @@ describe('computeElectricStats', () => {
     expect(stats.totalEnergyKwh).toBe(25)
     expect(stats.totalCost).toBe(5)
     expect(stats.sessionsWithCost).toBe(2)
-    expect(stats.averageCostPerKwh).toBe(0.2)
+    expect(stats.averageCostPerKwh).toBeCloseTo(0.2)
   })
 
   it('ignores sessions without a known cost when averaging cost per kWh', () => {
@@ -77,7 +77,7 @@ describe('computeElectricStats', () => {
 
     expect(stats.totalCost).toBe(2)
     expect(stats.sessionsWithCost).toBe(1)
-    expect(stats.averageCostPerKwh).toBe(0.2)
+    expect(stats.averageCostPerKwh).toBeCloseTo(0.2)
   })
 })
 
@@ -102,7 +102,7 @@ describe('computeFuelStats', () => {
     expect(stats.count).toBe(2)
     expect(stats.totalLiters).toBe(50)
     expect(stats.totalCost).toBe(75)
-    expect(stats.averageCostPerLiter).toBe(1.5)
+    expect(stats.averageCostPerLiter).toBeCloseTo(1.5)
   })
 })
 

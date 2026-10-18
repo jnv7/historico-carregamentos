@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react'
 import { filterByMonth } from '../../domain/calendar'
 import { computeEfficiencyPoints, summarizeEfficiency } from '../../domain/efficiency'
-import { capitalizeFirst, formatCurrency, formatEnergy, formatLiters } from '../../domain/format'
+import {
+  capitalizeFirst,
+  formatCurrency,
+  formatEnergy,
+  formatLiters,
+  formatUnitPrice,
+} from '../../domain/format'
 import { computeCombinedStats, computeElectricStats, computeFuelStats } from '../../domain/stats'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
 import { EntryEfficiencyView } from './EntryEfficiencyView'
@@ -87,13 +93,13 @@ export function StatsScreen({
         : filterByMonth(points, monthCursor.getFullYear(), monthCursor.getMonth())
     return summarizeEfficiency(inPeriod)
   }, [sessions, fuelEntries, filter, period, monthCursor, batteryCapacityKwh, fullyElectric])
-  const costPerKm =
-    efficiencySummary.costPer100Km !== null ? efficiencySummary.costPer100Km / 100 : null
 
-  const costPerKmCard = costPerKm !== null && (
+  const costPer100KmCard = efficiencySummary.costPer100Km !== null && (
     <div className="card">
-      <div className="muted">Custo médio por km</div>
-      <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{formatCurrency(costPerKm)}</div>
+      <div className="muted">Custo por 100 km</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+        {formatCurrency(efficiencySummary.costPer100Km)}
+      </div>
       <div className="muted">
         Baseado em {efficiencySummary.kmDriven.toLocaleString('pt-PT')} km percorridos
       </div>
@@ -195,7 +201,7 @@ export function StatsScreen({
             </div>
           </div>
 
-          {costPerKmCard}
+          {costPer100KmCard}
         </div>
       )}
 
@@ -235,14 +241,14 @@ export function StatsScreen({
 
               {electricStats.averageCostPerKwh != null && (
                 <div className="card">
-                  <div className="muted">Custo médio por kWh</div>
+                  <div className="muted">Preço médio por kWh</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                    {formatCurrency(electricStats.averageCostPerKwh)}
+                    {formatUnitPrice(electricStats.averageCostPerKwh, 'kWh')}
                   </div>
                 </div>
               )}
 
-              {costPerKmCard}
+              {costPer100KmCard}
             </>
           )}
         </div>
@@ -274,14 +280,14 @@ export function StatsScreen({
 
               {fuelStats.averageCostPerLiter != null && (
                 <div className="card">
-                  <div className="muted">Custo médio por litro</div>
+                  <div className="muted">Preço médio por litro</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                    {formatCurrency(fuelStats.averageCostPerLiter)}
+                    {formatUnitPrice(fuelStats.averageCostPerLiter, 'L')}
                   </div>
                 </div>
               )}
 
-              {costPerKmCard}
+              {costPer100KmCard}
             </>
           )}
         </div>

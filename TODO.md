@@ -1319,7 +1319,7 @@ A ideia: em cada carregamento, a energia que já estava na bateria (`batteryStar
 
 **Pronto quando:** os 6 testes novos e todos os antigos passam. Já experimentei este código numa cópia: os testes atuais (108) e `npx tsc -b` continuam a passar.
 
-### - [ ] D2. Preços com mais precisão e custo por 100 km
+### - [x] D2. Preços com mais precisão e custo por 100 km
 
 Ficheiros: altera `src/domain/stats.ts`, `src/domain/stats.test.ts`, `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
 
