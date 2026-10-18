@@ -1,6 +1,6 @@
 # TODO
 
-Plano de trabalho em três partes. Faz as partes pela ordem **A → B → C** e, dentro de cada parte, as tarefas pela ordem em que aparecem: algumas dependem das anteriores. Quando uma tarefa estiver feita, marca a caixa (`- [x]`) no mesmo commit.
+Plano de trabalho em quatro partes. Faz as partes pela ordem **A → B → C → D** e, dentro de cada parte, as tarefas pela ordem em que aparecem: algumas dependem das anteriores. Quando uma tarefa estiver feita, marca a caixa (`- [x]`) no mesmo commit.
 
 ## Antes de começar
 
@@ -1165,3 +1165,342 @@ Sem alterações de código.
 5. Cria dois abastecimentos cheios e um parcial entre eles → só aparece um ponto de combustível.
 
 **Pronto quando:** os 5 passos dão o resultado indicado.
+
+---
+
+## Parte D — Estatísticas de carregamentos em casa e na rua
+
+### Problemas a resolver
+
+Encontrados com uma cópia de segurança real (EX40, outubro de 2026): 8 carregamentos em casa a 0,19 €/kWh e 1 carregamento rápido (DC) a 0,58 €/kWh.
+
+1. **O custo por 100 km fica inflacionado depois de um carregamento caro.** Toda a energia que está na bateria é cobrada ao preço do último carregamento. Depois do DC a bateria ficou a 77 %: 25 % vinham de casa e 52 % do DC. Mesmo assim, os 65 % gastos a seguir foram todos cobrados a 0,58 €, o que dá 31,29 € (12,52 €/100 km) em vez de 24,64 € (9,86 €/100 km). No mês dá 5,58 €/100 km em vez de 5,09 €. A app chega a atribuir mais dinheiro do que o utilizador gastou. **Correção:** acompanhar o preço médio da energia que está na bateria.
+2. **O preço médio por kWh (0,25 €) não corresponde a nenhum preço que o utilizador pague.** Ele paga 0,19 € ou 0,58 €. Além disso, o valor é arredondado a 2 casas e o custo por km aparece com 2 casas ("0,06 €"), o que é pouco preciso. **Correção:** mostrar os preços com 3 casas e o custo por 100 km.
+3. **O tipo de carregador é pedido em todos os formulários mas não é usado em nenhuma estatística.** **Correção:** mostrar um resumo por tipo e quanto se pagou a mais por carregar fora de casa (neste mês: +17,46 € num só carregamento).
+4. **No "Por registo", cada linha tem a data do carregamento que fecha o intervalo.** Por isso, o DC caro aparece barato e o carregamento barato em casa logo a seguir aparece caro. **Correção:** mostrar o intervalo ("16/10 → 17/10") e acrescentar um gráfico com o preço por kWh de cada carregamento, com uma cor por tipo.
+5. **Faltam os km do mês como valor principal e uma estimativa do custo do mês.**
+
+### - [x] D1. Custo da energia na bateria pelo preço médio
+
+Ficheiros: altera `src/domain/efficiency.ts`, `src/domain/efficiency.test.ts`
+
+A ideia: em cada carregamento, a energia que já estava na bateria (`batteryStartPct` × capacidade, ao preço médio que tinha) junta-se à energia carregada agora (ao preço pago). O resultado é o novo preço médio da bateria. O custo de um intervalo passa a ser: o que estava na bateria no fim do carregamento anterior, mais o que se pagou pelo meio, menos o que ainda está na bateria no início deste carregamento, cada parte ao preço médio desse momento. Se só houve carregamentos em casa, o resultado é igual ao de hoje.
+
+1. A seguir a `energyFromBattery`, acrescenta:
+
+   ```ts
+   interface BatteryPrices {
+     /** Average €/kWh in the battery right after the previous reading's charge. */
+     afterPrevious: number | null
+     /** Average €/kWh in the battery just before this entry's charge. */
+     beforeCurrent: number | null
+     /** False when a charge in between had no starting battery level, so its price wasn't mixed in. */
+     allMixedBetween: boolean
+   }
+
+   /**
+    * Average price per kWh of the energy in the battery after an item's charge: what was already
+    * there (batteryStartPct × capacity, at the price it had) mixed with what was charged now.
+    * When that can't be worked out, assumes the whole battery was bought at this charge's price.
+    */
+   function batteryPriceAfter(
+     priceBefore: number | null,
+     item: Item,
+     capacityKwh: number | null,
+   ): { price: number | null; mixed: boolean } {
+     if (item.cost === null || item.quantity <= 0) return { price: null, mixed: false }
+     if (priceBefore === null || capacityKwh === null || item.batteryStartPct === null) {
+       return { price: item.cost / item.quantity, mixed: false }
+     }
+     const kwhBefore = (item.batteryStartPct / 100) * capacityKwh
+     return {
+       price: (kwhBefore * priceBefore + item.cost) / (kwhBefore + item.quantity),
+       mixed: true,
+     }
+   }
+   ```
+
+2. Substitui `energyFromBattery` por esta versão, que recebe um parâmetro novo `prices`. Atualiza também o comentário por cima da função:
+
+   ```ts
+   function energyFromBattery(
+     previous: Item,
+     current: Item,
+     chargedBetween: number,
+     costBetween: number | null,
+     capacityKwh: number | null,
+     prices: BatteryPrices,
+   ): { quantity: number; cost: number | null } | null {
+     if (
+       capacityKwh === null ||
+       previous.batteryEndPct === null ||
+       current.batteryStartPct === null
+     ) {
+       return null
+     }
+     const fromBattery = ((previous.batteryEndPct - current.batteryStartPct) / 100) * capacityKwh
+     const quantity = fromBattery + chargedBetween
+     if (quantity <= 0) return null
+     if (prices.afterPrevious === null || costBetween === null) return { quantity, cost: null }
+     // What was in the battery after the previous charge, plus what was paid since, minus what is
+     // still in it now — each at the average price of the battery's energy at that moment.
+     if (prices.allMixedBetween && prices.beforeCurrent !== null) {
+       const kwhAfterPrevious = (previous.batteryEndPct / 100) * capacityKwh
+       const kwhBeforeCurrent = (current.batteryStartPct / 100) * capacityKwh
+       const cost =
+         kwhAfterPrevious * prices.afterPrevious +
+         costBetween -
+         kwhBeforeCurrent * prices.beforeCurrent
+       return { quantity, cost }
+     }
+     // A charge in between without a starting battery level: its price can't be mixed in.
+     return { quantity, cost: fromBattery * prices.afterPrevious + costBetween }
+   }
+   ```
+
+3. Em `computeEfficiencyPoints`:
+   1. A seguir a `let electricKm: number | null = 0`, acrescenta:
+
+      ```ts
+      // Average €/kWh of the energy in the battery (electric scope only).
+      let batteryPrice: number | null = null
+      let priceAfterPrevious: number | null = null
+      let allMixedBetween = true
+      ```
+
+   2. A seguir a `const costBetween = cost`, acrescenta:
+
+      ```ts
+      const priceBeforeItem = batteryPrice
+      const allMixedBeforeItem = allMixedBetween
+      let mixed = true
+      if (scope === 'electric') {
+        const after = batteryPriceAfter(batteryPrice, item, options.batteryCapacityKwh)
+        batteryPrice = after.price
+        mixed = after.mixed
+      }
+      ```
+
+   3. Troca `if (!closesInterval) continue` por:
+
+      ```ts
+      if (!closesInterval) {
+        allMixedBetween = allMixedBetween && mixed
+        continue
+      }
+      ```
+
+   4. Na chamada a `energyFromBattery`, passa o último argumento:
+
+      ```ts
+      {
+        afterPrevious: priceAfterPrevious,
+        beforeCurrent: priceBeforeItem,
+        allMixedBetween: allMixedBeforeItem,
+      },
+      ```
+
+   5. No fim do ciclo, logo a seguir a `previous = item`, acrescenta `priceAfterPrevious = batteryPrice` e `allMixedBetween = true`.
+
+4. Testes novos, todos com âmbito `'electric'` e `{ batteryCapacityKwh: 50 }`. Os dados base são:
+   - A: 1000 km, 20→80 %, 30 kWh, 6 € (0,20 €/kWh).
+   - B: 1200 km, 40→80 %, 20 kWh, 12 € (0,60 €/kWh).
+   - C: 1400 km, começa a 30 %, 10 kWh, 2 €.
+
+   Casos:
+   1. A, B, C → ponto B com `quantity: 20` e `cost: 4`. Ponto C com `quantity: 25`, `cost: 10` e `costPer100Km: 5`. Antes desta tarefa, o custo do ponto C dava 15.
+   2. B **sem km** (passa a ser um carregamento pelo meio, X) → só há o ponto C, com `quantity: 45` e `cost: 14`. Antes dava 17.
+   3. Como o caso 2, mas X também sem `batteryStartPct` → `quantity: 45`, `cost: 17`. Não é possível misturar os preços, por isso o resultado é igual ao de hoje.
+   4. A, B, C com B sem custo → ponto C com `cost: null`.
+   5. A, B, C com B a 4 € (o mesmo preço de A, só casa) → ponto C com `cost: 5`, igual ao de hoje.
+   6. Garantia de que nunca se atribui mais dinheiro do que o gasto: no caso 1, a soma dos `cost` dos pontos (14) é menor ou igual a 6 + 12 = 18.
+
+   Usa `toBeCloseTo` para valores com vírgula flutuante.
+
+**Pronto quando:** os 6 testes novos e todos os antigos passam. Já experimentei este código numa cópia: os testes atuais (108) e `npx tsc -b` continuam a passar.
+
+### - [ ] D2. Preços com mais precisão e custo por 100 km
+
+Ficheiros: altera `src/domain/stats.ts`, `src/domain/stats.test.ts`, `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
+
+1. Em `computeElectricStats`, calcula `averageCostPerKwh` sem `round2`: `sum(withCost.map((s) => s.cost)) / energyWithCost`. Faz o mesmo para `averageCostPerLiter` em `computeFuelStats`. Os totais continuam arredondados.
+2. Em `StatsScreen.tsx`:
+   - Muda o rótulo do cartão "Custo médio por kWh" para **"Preço médio por kWh"** e mostra-o com `formatUnitPrice(value, 'kWh')`. Faz o mesmo para o litro.
+   - Troca o cartão "Custo médio por km" por **"Custo por 100 km"**, com o valor `formatCurrency(efficiencySummary.costPer100Km)`. Mantém "Baseado em X km percorridos". Apaga a constante `costPerKm`.
+3. Atualiza os testes que esperavam 0,2 (passa a `toBeCloseTo(0.2)`) e o teste de `StatsScreen.test.tsx` que procura "Custo médio por km". Passa a procurar "Custo por 100 km" com o valor `formatCurrency(2000 / 300)`.
+
+**Pronto quando:** todos os testes passam.
+
+### - [ ] D3. Resumo por tipo de carregador (só cálculo)
+
+Ficheiros: novo `src/domain/chargerBreakdown.ts` · novo `src/domain/chargerBreakdown.test.ts`
+
+1. Cria o ficheiro com:
+
+   ```ts
+   import type { ChargerType, ChargingSession } from './types'
+
+   export type ChargerGroup = ChargerType | 'unknown'
+
+   export interface ChargerGroupStats {
+     group: ChargerGroup
+     count: number
+     energyKwh: number
+     /** Sum of the known costs. */
+     cost: number
+     /** Energy of the charges with a known cost (the divisor of pricePerKwh). */
+     energyWithCost: number
+     pricePerKwh: number | null
+   }
+
+   export interface ChargerBreakdown {
+     /** Only the groups with charges, in the order home, public_ac, public_dc, other, unknown. */
+     groups: ChargerGroupStats[]
+     /** €/kWh at home: from the given sessions, or from allSessions when there are none at home. */
+     homePricePerKwh: number | null
+     homePriceFromPeriod: boolean
+     /** What the charges away from home cost beyond the same kWh at the home price. Null without a home price. */
+     extraCostVsHome: number | null
+     /** Share (0–1) of the energy / cost charged away from home. Charges without a type are left out. */
+     awayEnergyShare: number | null
+     awayCostShare: number | null
+   }
+
+   export function computeChargerBreakdown(
+     sessions: ChargingSession[],
+     allSessions: ChargingSession[] = sessions,
+   ): ChargerBreakdown
+   ```
+
+2. Regras:
+   - Ignora carregamentos com `isLive`.
+   - `group` é `s.chargerType ?? 'unknown'`.
+   - `pricePerKwh` é `cost / energyWithCost`, ou `null` quando `energyWithCost` é 0.
+   - "Fora de casa" quer dizer `public_ac`, `public_dc` ou `other`. `unknown` não conta nem como casa nem como fora.
+   - O preço de casa vem do grupo `home` de `sessions`. Se esse grupo não tiver preço, usa o grupo `home` de `allSessions` e põe `homePriceFromPeriod: false`.
+   - `extraCostVsHome` é a soma, nos carregamentos fora de casa com custo, de `cost − energyKwh × homePricePerKwh`. Pode ser negativo, por exemplo num carregamento gratuito. É `null` sem preço de casa ou sem carregamentos fora de casa com custo.
+   - `awayEnergyShare` é a energia fora de casa a dividir pela energia de casa mais a de fora. `awayCostShare` faz o mesmo com o custo, contando só os carregamentos com custo. São `null` quando o denominador é 0.
+3. Testes:
+   1. Casa 20 kWh / 4 € duas vezes, DC 10 kWh / 6 €, AC 8 kWh sem custo, sem tipo 5 kWh / 1 €.
+      - `groups`: home (2, 40, 8, 0,20), public_ac (1, 8, 0, preço `null`), public_dc (1, 10, 6, 0,60), unknown (1, 5, 1, 0,20), por esta ordem.
+      - `extraCostVsHome` 4.
+      - `awayEnergyShare` 18/58.
+      - `awayCostShare` 6/14.
+   2. Só DC no período e casa a 0,20 em `allSessions` → `homePricePerKwh` 0,20, `homePriceFromPeriod: false`, `extraCostVsHome` 4.
+   3. Sem nenhum carregamento em casa → `homePricePerKwh`, `extraCostVsHome` e as duas partes são `null`.
+   4. Um carregamento live é ignorado.
+   5. DC gratuito (10 kWh, 0 €) com casa a 0,20 → `extraCostVsHome` −2.
+
+**Pronto quando:** os 5 testes passam.
+
+### - [ ] D4. Cartão "Onde carregaste" no Resumo
+
+Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
+
+1. Calcula `const breakdown = useMemo(() => computeChargerBreakdown(periodSessions, finishedSessions), [periodSessions, finishedSessions])`.
+2. Na vista Elétrico, a seguir ao cartão "Preço médio por kWh", mostra um cartão **"Onde carregaste"** quando `breakdown.groups.length >= 2`:
+   - Uma tabela com as colunas Tipo, kWh, Custo, €/kWh e ≈ €/100 km, e uma linha por grupo.
+     - Tipo: `CHARGER_TYPE_LABELS[group]`, ou "Sem tipo" para `unknown`.
+     - €/kWh: `formatUnitPrice`, ou "—" quando é `null`.
+     - ≈ €/100 km: `pricePerKwh × efficiencySummary.consumptionPer100Km`, com `formatCurrency`, ou "—" quando falta algum dos dois.
+     - Usa o mesmo estilo da tabela de `EntryEfficiencyView` (`cell`, números em `tabular-nums`).
+   - Por baixo, quando as partes não são `null`: "Fora de casa: {E} % da energia e {C} % do custo." As percentagens são arredondadas às unidades.
+   - Quando `extraCostVsHome` não é `null` e o seu valor absoluto é ≥ 0,01:
+     - se for positivo: "Carregar fora de casa custou mais {formatCurrency(x)} do que em casa."
+     - se for negativo: "Carregar fora de casa poupou-te {formatCurrency(−x)} face ao preço de casa."
+   - Em texto `muted`: "Preço de casa: {formatUnitPrice} " e, quando `homePriceFromPeriod` é `false`, "(média de todos os meses)".
+   - A coluna ≈ €/100 km é uma estimativa: tem um `title` "Preço por kWh × consumo médio do período".
+3. Na vista Ambos (híbridos), não mostres o cartão.
+4. Testes (`fullyElectric`, sem capacidade da bateria):
+   1. Casa 20 kWh / 4 € e DC 10 kWh / 6 € neste mês → aparece "Onde carregaste", "Fora de casa: 33 % da energia e 60 % do custo." e "custou mais 4,00 €".
+   2. Só carregamentos em casa → o cartão não aparece.
+
+   Atenção: há testes que fazem `getByText('1')` e podem passar a encontrar dois elementos. Se isso acontecer, restringe a pesquisa ao cartão certo com `within`.
+
+**Pronto quando:** todos os testes passam.
+
+### - [ ] D5. "Por registo": mostrar intervalos e o preço por carregamento
+
+Ficheiros: altera `src/domain/efficiency.ts`, `src/domain/format.ts`, `src/domain/format.test.ts`, `src/features/stats/statsShared.ts`, `src/index.css`, `src/features/stats/EntryEfficiencyView.tsx`, `src/features/stats/StatsScreen.test.tsx`
+
+1. Em `EfficiencyPoint`, acrescenta `/** startAt of the previous reading: the interval runs from it to this entry. */ previousStartAt: string`. No `points.push`, preenche-o com `previous.startAt`.
+2. Em `format.ts`, cria `formatInterval(fromIso, toIso)`, em hora local:
+   - mesmo dia: "17/10 15:01 → 21:29";
+   - dias diferentes do mesmo ano: "16/10 → 17/10";
+   - anos diferentes: `formatDate` dos dois, "30/12/2025 → 02/01/2026".
+
+   Escreve um teste para cada um dos três casos.
+
+3. Na tabela de `EntryEfficiencyView`, o cabeçalho "Data" passa a "Período" e a célula passa a ser `{ícone} {formatInterval(p.previousStartAt, p.startAt)}`. As `categories` do `ColumnChart` (o título do detalhe) também passam a usar `formatInterval`. Os rótulos do eixo ficam como estão.
+4. Acrescenta `--away: #c084fc;` a `:root` em `index.css` e, em `statsShared.ts`, `export const AWAY_COLOR = 'var(--away)'`.
+5. Só com `filter === 'electric'`, a seguir ao gráfico de consumo, acrescenta um `ColumnChart` **"Preço por kWh, carregamento a carregamento"**:
+   - Uma coluna por carregamento terminado do período, por ordem de data, com `cost !== null` e `energyKwh > 0`. Inclui os carregamentos sem km.
+   - Três séries: "🏠 Casa" (`ELECTRIC_COLOR`, `chargerType === 'home'`), "🔌 Fora de casa" (`AWAY_COLOR`, `public_ac`, `public_dc` ou `other`) e "Sem tipo" (`'var(--text-muted)'`). Cada série tem `null` nas colunas dos outros grupos. Omite as séries sem valores.
+   - Valor: `cost / energyKwh`. Formato: `formatUnitPrice(v, 'kWh')`. Ticks com 2 casas.
+   - Linha de referência: o preço médio do período (custo total ÷ energia com custo), com o rótulo "média".
+   - Detalhe: "{tipo} · {formatEnergy} · {formatCurrency(cost)}" e, se houver local, " · {location}".
+   - Subtítulo: "Quanto pagaste por cada kWh. O custo por 100 km de cada viagem está na tabela abaixo."
+   - Este componente recebe todos os `sessions`. Filtra os do período com `filterByMonth`, como já faz com os pontos.
+6. Hoje, quando `points.length === 0`, o componente devolve só a mensagem. Muda isso para que o gráfico de preços apareça mesmo sem leituras de km: a mensagem substitui só o cartão de média, o gráfico de consumo e a tabela.
+7. Testes:
+   1. Vista Elétrico → Por registo, com um carregamento em casa e um DC → aparece o título "Preço por kWh, carregamento a carregamento".
+   2. Atualiza os testes que procuram "Data" ou datas no formato antigo.
+
+**Pronto quando:** todos os testes passam.
+
+### - [ ] D6. Km percorridos e estimativa do custo do mês
+
+Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
+
+1. Nas vistas Ambos e Elétrico (esta só quando `fullyElectric`), põe como **primeiro** cartão "Km percorridos", com o valor `formatDecimal(efficiencySummary.kmDriven, 0)` + " km" e a nota `muted` "Entre leituras do conta-quilómetros". Mostra-o só quando `kmDriven > 0`. Num híbrido, na vista Elétrico, não o mostres, porque os km seriam só os feitos em elétrico.
+2. No cartão "Custo total" das três vistas, acrescenta uma linha `muted` quando **todas** estas condições se verificam:
+   - `period === 'month'`;
+   - o mês selecionado é o mês atual;
+   - o dia de hoje é ≥ 7;
+   - o custo é > 0.
+
+   O texto é "Ao ritmo atual, cerca de {formatDecimal(Math.round(custo × diasDoMês ÷ diaDeHoje), 0)} € no fim do mês". `diasDoMês` é `new Date(ano, mês + 1, 0).getDate()`.
+
+3. Testes. Usa `vi.useFakeTimers({ toFake: ['Date'] })` e `vi.setSystemTime(new Date(2026, 9, 18, 12))`, cria as datas dentro do teste (não uses o `thisMonth` do topo do ficheiro) e chama `vi.useRealTimers()` no fim:
+   1. Custo de 18 € em outubro → "cerca de 31 € no fim do mês".
+   2. Com a hora a 3 de outubro → a frase não aparece.
+   3. Dois carregamentos com 1000 e 1300 km → "Km percorridos" e "300 km".
+
+**Pronto quando:** todos os testes passam.
+
+### - [ ] D7. Atualizar o README
+
+Ficheiros: altera `README.md`
+
+Na linha das estatísticas, a seguir a "…separando os km feitos em elétrico", acrescenta: "; resumo por tipo de carregador, com o que se pagou a mais por carregar fora de casa, e preço por kWh de cada carregamento".
+
+**Pronto quando:** `npm run format:check` passa.
+
+### - [ ] D8. Verificação manual com a cópia de segurança real
+
+Sem alterações de código. O ficheiro `carregamentos-backup-2026-10-18.json` está na raiz do projeto. É um ficheiro do utilizador: **não o adiciones ao git**.
+
+1. `npm run dev` e restaura a cópia em Definições. A capacidade fica vazia, por isso usa a estimativa automática (83 kWh).
+2. Estatísticas → Resumo → outubro de 2026. Deve aparecer:
+   - Carregamentos 9;
+   - Energia 308,13 kWh;
+   - Custo total 76,13 €;
+   - Preço médio por kWh 0,247 €/kWh;
+   - Custo por 100 km **5,09 €** (antes 5,58 €), baseado em 1380 km;
+   - Km percorridos 1380 km.
+3. Cartão "Onde carregaste":
+   - Casa: 263,3 kWh, 50,13 €, 0,19 €/kWh, ≈ 4,05 €/100 km;
+   - Público DC: 44,83 kWh, 26,00 €, 0,58 €/kWh, ≈ 12,35 €/100 km;
+   - "Fora de casa: 15 % da energia e 34 % do custo.";
+   - "custou mais 17,46 €".
+4. Por registo (hora de Lisboa):
+   - linha "17/10 15:01 → 21:29": 250 km, 21,6 kWh/100 km, **9,86 €/100 km** (antes 12,52);
+   - linha "16/10 → 17/10": 230 km, 4,67 €;
+   - no gráfico de preços, o DC (0,58) aparece a roxo e os restantes (≈0,19) a ciano.
+5. A estimativa do mês depende do dia em que fizeres a verificação: 76,13 × 31 ÷ dia de hoje (a 18 de outubro dá 131 €).
+
+**Pronto quando:** os valores coincidem (diferenças só de arredondamento na última casa).
+
+### Fora deste plano
+
+- Comparar com um carro a combustão de referência (por exemplo, "o DC sai mais caro do que gasolina"). Precisa de duas definições novas (L/100 km e €/L). Fica para depois, se fizer falta.

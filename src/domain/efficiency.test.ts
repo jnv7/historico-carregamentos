@@ -272,6 +272,86 @@ describe('energy from the battery percentage', () => {
   })
 })
 
+describe('the average price of the energy in the battery', () => {
+  const options = { batteryCapacityKwh: 50 }
+  const a = makeSession({
+    startAt: '2024-01-01T10:00:00Z',
+    odometerKm: 1000,
+    energyKwh: 30,
+    cost: 6,
+    batteryStartPct: 20,
+    batteryEndPct: 80,
+  })
+  const b = makeSession({
+    startAt: '2024-01-03T10:00:00Z',
+    odometerKm: 1200,
+    energyKwh: 20,
+    cost: 12,
+    batteryStartPct: 40,
+    batteryEndPct: 80,
+  })
+  const c = makeSession({
+    startAt: '2024-01-05T10:00:00Z',
+    odometerKm: 1400,
+    energyKwh: 10,
+    cost: 2,
+    batteryStartPct: 30,
+  })
+
+  it('mixes the price of a dear charge into what is left in the battery', () => {
+    const [pointB, pointC] = computeEfficiencyPoints([a, b, c], [], 'electric', options)
+
+    expect(pointB.quantity).toBeCloseTo(20)
+    expect(pointB.cost).toBeCloseTo(4)
+    expect(pointC.quantity).toBeCloseTo(25)
+    expect(pointC.cost).toBeCloseTo(10) // was 15 at the last charge's price
+    expect(pointC.costPer100Km).toBeCloseTo(5)
+  })
+
+  it('mixes the price of a charge without km in between', () => {
+    const x = { ...b, odometerKm: null }
+
+    const points = computeEfficiencyPoints([a, x, c], [], 'electric', options)
+
+    expect(points).toHaveLength(1)
+    expect(points[0].quantity).toBeCloseTo(45)
+    expect(points[0].cost).toBeCloseTo(14) // was 17
+  })
+
+  it('cannot mix a charge in between that has no starting battery', () => {
+    const x = { ...b, odometerKm: null, batteryStartPct: null }
+
+    const [point] = computeEfficiencyPoints([a, x, c], [], 'electric', options)
+
+    expect(point.quantity).toBeCloseTo(45)
+    expect(point.cost).toBeCloseTo(17)
+  })
+
+  it('has no cost when a charge has none', () => {
+    const noCost = { ...b, cost: null }
+
+    const [, pointC] = computeEfficiencyPoints([a, noCost, c], [], 'electric', options)
+
+    expect(pointC.cost).toBeNull()
+  })
+
+  it('matches the old result when every charge has the same price', () => {
+    const sameB = { ...b, cost: 4 }
+
+    const [, pointC] = computeEfficiencyPoints([a, sameB, c], [], 'electric', options)
+
+    expect(pointC.cost).toBeCloseTo(5)
+  })
+
+  it('never attributes more money than was spent', () => {
+    const points = computeEfficiencyPoints([a, b, c], [], 'electric', options)
+
+    const attributed = points.reduce((acc, p) => acc + (p.cost ?? 0), 0)
+    expect(attributed).toBeCloseTo(14)
+    expect(attributed).toBeLessThanOrEqual(6 + 12)
+  })
+})
+
 describe('km driven in electric mode', () => {
   const first = makeSession({ startAt: '2024-01-01T10:00:00Z', odometerKm: 1000 })
 

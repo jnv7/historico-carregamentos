@@ -104,7 +104,7 @@ function toItems(
 /**
  * Energy used between two readings, from the battery: what was in it when the previous charge
  * ended, minus what was left when this one started, plus what was charged in between. Null when
- * a figure is missing.
+ * a figure is missing. The cost follows the average price of the energy in the battery.
  */
 function energyFromBattery(
   previous: Item,
@@ -112,6 +112,7 @@ function energyFromBattery(
   chargedBetween: number,
   costBetween: number | null,
   capacityKwh: number | null,
+  prices: BatteryPrices,
 ): { quantity: number; cost: number | null } | null {
   if (capacityKwh === null || previous.batteryEndPct === null || current.batteryStartPct === null) {
     return null
@@ -119,14 +120,50 @@ function energyFromBattery(
   const fromBattery = ((previous.batteryEndPct - current.batteryStartPct) / 100) * capacityKwh
   const quantity = fromBattery + chargedBetween
   if (quantity <= 0) return null
-  // The energy that was already in the battery was paid at the previous charge's price.
-  const previousPrice =
-    previous.cost !== null && previous.quantity > 0 ? previous.cost / previous.quantity : null
-  const cost =
-    previousPrice === null || costBetween === null
-      ? null
-      : fromBattery * previousPrice + costBetween
-  return { quantity, cost }
+  if (prices.afterPrevious === null || costBetween === null) return { quantity, cost: null }
+  // What was in the battery after the previous charge, plus what was paid since, minus what is
+  // still in it now — each at the average price of the battery's energy at that moment.
+  if (prices.allMixedBetween && prices.beforeCurrent !== null) {
+    const kwhAfterPrevious = (previous.batteryEndPct / 100) * capacityKwh
+    const kwhBeforeCurrent = (current.batteryStartPct / 100) * capacityKwh
+    const cost =
+      kwhAfterPrevious * prices.afterPrevious +
+      costBetween -
+      kwhBeforeCurrent * prices.beforeCurrent
+    return { quantity, cost }
+  }
+  // A charge in between without a starting battery level: its price can't be mixed in.
+  return { quantity, cost: fromBattery * prices.afterPrevious + costBetween }
+}
+
+interface BatteryPrices {
+  /** Average €/kWh in the battery right after the previous reading's charge. */
+  afterPrevious: number | null
+  /** Average €/kWh in the battery just before this entry's charge. */
+  beforeCurrent: number | null
+  /** False when a charge in between had no starting battery level, so its price wasn't mixed in. */
+  allMixedBetween: boolean
+}
+
+/**
+ * Average price per kWh of the energy in the battery after an item's charge: what was already
+ * there (batteryStartPct × capacity, at the price it had) mixed with what was charged now.
+ * When that can't be worked out, assumes the whole battery was bought at this charge's price.
+ */
+function batteryPriceAfter(
+  priceBefore: number | null,
+  item: Item,
+  capacityKwh: number | null,
+): { price: number | null; mixed: boolean } {
+  if (item.cost === null || item.quantity <= 0) return { price: null, mixed: false }
+  if (priceBefore === null || capacityKwh === null || item.batteryStartPct === null) {
+    return { price: item.cost / item.quantity, mixed: false }
+  }
+  const kwhBefore = (item.batteryStartPct / 100) * capacityKwh
+  return {
+    price: (kwhBefore * priceBefore + item.cost) / (kwhBefore + item.quantity),
+    mixed: true,
+  }
 }
 
 /**
@@ -158,11 +195,23 @@ export function computeEfficiencyPoints(
   let cost: number | null = 0
   let entries = 0
   let electricKm: number | null = 0
+  // Average €/kWh of the energy in the battery (electric scope only).
+  let batteryPrice: number | null = null
+  let priceAfterPrevious: number | null = null
+  let allMixedBetween = true
 
   for (const item of toItems(sessions, fuelEntries, scope)) {
     // What was put in before this entry: this entry's own charge happens after its starting battery.
     const chargedBetween = quantity
     const costBetween = cost
+    const priceBeforeItem = batteryPrice
+    const allMixedBeforeItem = allMixedBetween
+    let mixed = true
+    if (scope === 'electric') {
+      const after = batteryPriceAfter(batteryPrice, item, options.batteryCapacityKwh)
+      batteryPrice = after.price
+      mixed = after.mixed
+    }
 
     quantity += item.quantity
     cost = cost === null || item.cost === null ? null : cost + item.cost
@@ -172,7 +221,10 @@ export function computeEfficiencyPoints(
 
     // A partial fill-up does not close a fuel interval: its litres carry over to the next full tank.
     const closesInterval = item.odometerKm !== null && (scope !== 'fuel' || item.fullTank)
-    if (!closesInterval) continue
+    if (!closesInterval) {
+      allMixedBetween = allMixedBetween && mixed
+      continue
+    }
 
     const kmDriven: number = previous === null ? 0 : item.odometerKm! - previous.odometerKm!
     // A first reading has nothing to compare against; a non-increasing one is a typo or out of order.
@@ -187,6 +239,11 @@ export function computeEfficiencyPoints(
           chargedBetween,
           costBetween,
           options.batteryCapacityKwh,
+          {
+            afterPrevious: priceAfterPrevious,
+            beforeCurrent: priceBeforeItem,
+            allMixedBetween: allMixedBeforeItem,
+          },
         )
         if (fromBattery) {
           pointQuantity = fromBattery.quantity
@@ -230,6 +287,8 @@ export function computeEfficiencyPoints(
       })
     }
     previous = item
+    priceAfterPrevious = batteryPrice
+    allMixedBetween = true
     quantity = 0
     cost = 0
     entries = 0
