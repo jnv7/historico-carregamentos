@@ -1393,7 +1393,7 @@ Ficheiros: novo `src/domain/chargerBreakdown.ts` · novo `src/domain/chargerBrea
 
 **Pronto quando:** os 5 testes passam.
 
-### - [ ] D4. Cartão "Onde carregaste" no Resumo
+### - [x] D4. Cartão "Onde carregaste" no Resumo
 
 Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/StatsScreen.test.tsx`
 

@@ -8,7 +8,13 @@ import {
 import { formatConsumption, formatCurrency, formatDate, formatDecimal } from '../../domain/format'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
 import { ColumnChart, type ChartSeries } from './charts/Charts'
-import { ELECTRIC_COLOR, FUEL_COLOR, type Period, type StatsFilter } from './statsShared'
+import {
+  ELECTRIC_COLOR,
+  FUEL_COLOR,
+  TABLE_CELL_STYLE as cell,
+  type Period,
+  type StatsFilter,
+} from './statsShared'
 
 const dayMonth = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: '2-digit' })
 const MIN_COLUMN_WIDTH = 22
@@ -192,5 +198,3 @@ function distanceDetail(p: EfficiencyPoint, filter: StatsFilter): string {
   }
   return `${formatDecimal(p.kmDriven, 0)} km desde a leitura anterior`
 }
-
-const cell = { padding: '8px 10px', fontVariantNumeric: 'tabular-nums' } as const

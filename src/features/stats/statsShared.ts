@@ -10,3 +10,5 @@ export const SELECTED_BUTTON_STYLE = {
   color: '#032027',
   borderColor: 'transparent',
 } as const
+
+export const TABLE_CELL_STYLE = { padding: '8px 10px', fontVariantNumeric: 'tabular-nums' } as const

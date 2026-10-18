@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import { filterByMonth } from '../../domain/calendar'
+import { computeChargerBreakdown } from '../../domain/chargerBreakdown'
+import { CHARGER_TYPE_LABELS } from '../../domain/chargerTypes'
 import { computeEfficiencyPoints, summarizeEfficiency } from '../../domain/efficiency'
 import {
   capitalizeFirst,
   formatCurrency,
+  formatDecimal,
   formatEnergy,
   formatLiters,
   formatUnitPrice,
@@ -12,7 +15,12 @@ import { computeCombinedStats, computeElectricStats, computeFuelStats } from '..
 import type { ChargingSession, FuelEntry } from '../../domain/types'
 import { EntryEfficiencyView } from './EntryEfficiencyView'
 import { MonthlyCharts } from './MonthlyCharts'
-import { SELECTED_BUTTON_STYLE, type Period, type StatsFilter } from './statsShared'
+import {
+  SELECTED_BUTTON_STYLE,
+  TABLE_CELL_STYLE as cell,
+  type Period,
+  type StatsFilter,
+} from './statsShared'
 
 type StatsView = 'summary' | 'entries'
 
@@ -93,6 +101,10 @@ export function StatsScreen({
         : filterByMonth(points, monthCursor.getFullYear(), monthCursor.getMonth())
     return summarizeEfficiency(inPeriod)
   }, [sessions, fuelEntries, filter, period, monthCursor, batteryCapacityKwh, fullyElectric])
+  const breakdown = useMemo(
+    () => computeChargerBreakdown(periodSessions, finishedSessions),
+    [periodSessions, finishedSessions],
+  )
 
   const costPer100KmCard = efficiencySummary.costPer100Km !== null && (
     <div className="card">
@@ -244,6 +256,74 @@ export function StatsScreen({
                   <div className="muted">Preço médio por kWh</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>
                     {formatUnitPrice(electricStats.averageCostPerKwh, 'kWh')}
+                  </div>
+                </div>
+              )}
+
+              {breakdown.groups.length >= 2 && (
+                <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+                  <div style={{ padding: '12px 12px 4px' }}>
+                    <div className="muted">Onde carregaste</div>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr className="muted" style={{ textAlign: 'right' }}>
+                        <th style={{ ...cell, textAlign: 'left' }}>Tipo</th>
+                        <th style={cell}>kWh</th>
+                        <th style={cell}>Custo</th>
+                        <th style={cell}>€/kWh</th>
+                        <th style={cell} title="Preço por kWh × consumo médio do período">
+                          ≈ €/100 km
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {breakdown.groups.map((g) => (
+                        <tr
+                          key={g.group}
+                          style={{ borderTop: '1px solid var(--border)', textAlign: 'right' }}
+                        >
+                          <td style={{ ...cell, textAlign: 'left' }}>
+                            {g.group === 'unknown' ? 'Sem tipo' : CHARGER_TYPE_LABELS[g.group]}
+                          </td>
+                          <td style={cell}>{formatDecimal(g.energyKwh, 2)}</td>
+                          <td style={cell}>{formatCurrency(g.cost)}</td>
+                          <td style={cell}>
+                            {g.pricePerKwh !== null ? formatUnitPrice(g.pricePerKwh, 'kWh') : '—'}
+                          </td>
+                          <td style={cell}>
+                            {g.pricePerKwh !== null &&
+                            efficiencySummary.consumptionPer100Km !== null
+                              ? formatCurrency(
+                                  g.pricePerKwh * efficiencySummary.consumptionPer100Km,
+                                )
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ padding: 12 }}>
+                    {breakdown.awayEnergyShare !== null && breakdown.awayCostShare !== null && (
+                      <div>
+                        Fora de casa: {Math.round(breakdown.awayEnergyShare * 100)} % da energia e{' '}
+                        {Math.round(breakdown.awayCostShare * 100)} % do custo.
+                      </div>
+                    )}
+                    {breakdown.extraCostVsHome !== null &&
+                      Math.abs(breakdown.extraCostVsHome) >= 0.01 && (
+                        <div>
+                          {breakdown.extraCostVsHome > 0
+                            ? `Carregar fora de casa custou mais ${formatCurrency(breakdown.extraCostVsHome)} do que em casa.`
+                            : `Carregar fora de casa poupou-te ${formatCurrency(-breakdown.extraCostVsHome)} face ao preço de casa.`}
+                        </div>
+                      )}
+                    {breakdown.homePricePerKwh !== null && (
+                      <div className="muted">
+                        Preço de casa: {formatUnitPrice(breakdown.homePricePerKwh, 'kWh')}
+                        {!breakdown.homePriceFromPeriod && ' (média de todos os meses)'}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

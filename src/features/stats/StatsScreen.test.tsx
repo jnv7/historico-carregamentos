@@ -195,6 +195,32 @@ describe('StatsScreen', () => {
     )
   })
 
+  it('compares home charging with charging away from home', () => {
+    const sessions = [
+      makeSession({ chargerType: 'home', energyKwh: 20, cost: 4 }),
+      makeSession({ chargerType: 'public_dc', energyKwh: 10, cost: 6 }),
+    ]
+    render(
+      <StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} fullyElectric />,
+    )
+
+    expect(screen.getByText('Onde carregaste')).toBeInTheDocument()
+    expect(screen.getByText(/Fora de casa: 33 % da energia e 60 % do custo\./)).toBeInTheDocument()
+    expect(screen.getByText(/custou mais 4,00 € do que em casa/)).toBeInTheDocument()
+  })
+
+  it('has no charger breakdown when every charge was at home', () => {
+    const sessions = [
+      makeSession({ chargerType: 'home', energyKwh: 20, cost: 4 }),
+      makeSession({ chargerType: 'home', energyKwh: 10, cost: 2 }),
+    ]
+    render(
+      <StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} fullyElectric />,
+    )
+
+    expect(screen.queryByText('Onde carregaste')).not.toBeInTheDocument()
+  })
+
   it('only offers the electric view for a fully electric car', () => {
     const sessions = [makeSession({ energyKwh: 10, cost: 2 })]
     const fuelEntries = [makeFuelEntry({ liters: 30, cost: 45 })]
