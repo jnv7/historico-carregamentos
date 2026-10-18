@@ -1468,7 +1468,7 @@ Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/Stat
 
 **Pronto quando:** todos os testes passam.
 
-### - [ ] D7. Atualizar o README
+### - [x] D7. Atualizar o README
 
 Ficheiros: altera `README.md`
 
