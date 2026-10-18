@@ -5,10 +5,20 @@ import {
   summarizeEfficiency,
   type EfficiencyPoint,
 } from '../../domain/efficiency'
-import { formatConsumption, formatCurrency, formatDate, formatDecimal } from '../../domain/format'
+import { CHARGER_TYPE_LABELS } from '../../domain/chargerTypes'
+import {
+  formatConsumption,
+  formatCurrency,
+  formatDateTime,
+  formatDecimal,
+  formatEnergy,
+  formatInterval,
+  formatUnitPrice,
+} from '../../domain/format'
 import type { ChargingSession, FuelEntry } from '../../domain/types'
 import { ColumnChart, type ChartSeries } from './charts/Charts'
 import {
+  AWAY_COLOR,
   ELECTRIC_COLOR,
   FUEL_COLOR,
   TABLE_CELL_STYLE as cell,
@@ -66,15 +76,6 @@ export function EntryEfficiencyView({
   const kindWord =
     filter === 'fuel' ? 'abastecimentos' : filter === 'electric' ? 'carregamentos' : 'registos'
 
-  if (points.length === 0) {
-    return (
-      <p className="muted">
-        Para ver a eficiência de cada um dos {kindWord}, regista os km do conta-quilómetros em pelo
-        menos dois deles. Cada registo é comparado com a leitura anterior.
-      </p>
-    )
-  }
-
   const series: ChartSeries[] = (['electric', 'fuel'] as const)
     .filter((kind) => filter === 'all' || filter === kind)
     .map((kind) => ({
@@ -108,6 +109,22 @@ export function EntryEfficiencyView({
       ? 'Energia gasta ÷ km desde o carregamento anterior. Usa a % da bateria quando a registas.'
       : 'Litros ÷ km entre depósitos cheios.'
 
+  const priceChart = filter === 'electric' && (
+    <PriceChart sessions={sessions} period={period} monthCursor={monthCursor} />
+  )
+
+  if (points.length === 0) {
+    return (
+      <div>
+        <p className="muted">
+          Para ver a eficiência de cada um dos {kindWord}, regista os km do conta-quilómetros em
+          pelo menos dois deles. Cada registo é comparado com a leitura anterior.
+        </p>
+        {priceChart}
+      </div>
+    )
+  }
+
   return (
     <div>
       {average !== null && (
@@ -126,7 +143,8 @@ export function EntryEfficiencyView({
         title={title}
         subtitle={subtitle}
         categories={points.map(
-          (p) => `${p.kind === 'electric' ? '⚡' : '⛽'} ${formatDate(p.startAt)}`,
+          (p) =>
+            `${p.kind === 'electric' ? '⚡' : '⛽'} ${formatInterval(p.previousStartAt, p.startAt)}`,
         )}
         tickLabels={tickLabels}
         series={series}
@@ -153,11 +171,13 @@ export function EntryEfficiencyView({
         }}
       />
 
+      {priceChart}
+
       <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
           <thead>
             <tr className="muted" style={{ textAlign: 'right' }}>
-              <th style={{ ...cell, textAlign: 'left' }}>Data</th>
+              <th style={{ ...cell, textAlign: 'left' }}>Período</th>
               <th style={cell}>km</th>
               {!usesCost && <th style={cell}>{unit}/100 km</th>}
               <th style={cell}>€/100 km</th>
@@ -167,7 +187,8 @@ export function EntryEfficiencyView({
             {[...points].reverse().map((p) => (
               <tr key={p.id} style={{ borderTop: '1px solid var(--border)', textAlign: 'right' }}>
                 <td style={{ ...cell, textAlign: 'left', whiteSpace: 'nowrap' }}>
-                  {p.kind === 'electric' ? '⚡' : '⛽'} {formatDate(p.startAt)}
+                  {p.kind === 'electric' ? '⚡' : '⛽'}{' '}
+                  {formatInterval(p.previousStartAt, p.startAt)}
                 </td>
                 <td style={cell}>{formatDecimal(p.distanceKm, 0)}</td>
                 {!usesCost && (
@@ -188,6 +209,72 @@ export function EntryEfficiencyView({
         registo seguinte com km. Abastecimentos parciais contam para o próximo depósito cheio.
       </p>
     </div>
+  )
+}
+
+/** The price paid per kWh at each finished charge, coloured by where it was charged. */
+function PriceChart({
+  sessions,
+  period,
+  monthCursor,
+}: {
+  sessions: ChargingSession[]
+  period: Period
+  monthCursor: Date
+}) {
+  const charges = useMemo(() => {
+    const priced = sessions.filter(
+      (s): s is ChargingSession & { cost: number } =>
+        !s.isLive && s.cost !== null && s.energyKwh > 0,
+    )
+    const inPeriod =
+      period === 'total'
+        ? priced
+        : filterByMonth(priced, monthCursor.getFullYear(), monthCursor.getMonth())
+    return [...inPeriod].sort((a, b) => a.startAt.localeCompare(b.startAt))
+  }, [sessions, period, monthCursor])
+
+  if (charges.length === 0) return null
+
+  const groupOf = (s: ChargingSession) =>
+    s.chargerType === null ? 'unknown' : s.chargerType === 'home' ? 'home' : 'away'
+  const price = (s: ChargingSession & { cost: number }) => s.cost / s.energyKwh
+  const series: ChartSeries[] = [
+    { id: 'home', label: '🏠 Casa', color: ELECTRIC_COLOR },
+    { id: 'away', label: '🔌 Fora de casa', color: AWAY_COLOR },
+    { id: 'unknown', label: 'Sem tipo', color: 'var(--text-muted)' },
+  ]
+    .map((g) => ({ ...g, values: charges.map((s) => (groupOf(s) === g.id ? price(s) : null)) }))
+    .filter((g) => g.values.some((v) => v !== null))
+
+  const totalCost = charges.reduce((acc, s) => acc + s.cost, 0)
+  const totalEnergy = charges.reduce((acc, s) => acc + s.energyKwh, 0)
+  const average = totalCost / totalEnergy
+
+  const approxBand = Math.max(MIN_COLUMN_WIDTH, 270 / charges.length)
+  const every = Math.ceil(34 / approxBand)
+  const tickLabels = charges.map((s, i) =>
+    (charges.length - 1 - i) % every === 0 ? dayMonth.format(new Date(s.startAt)) : null,
+  )
+
+  return (
+    <ColumnChart
+      key={`price-${period}-${monthCursor.getTime()}`}
+      title="Preço por kWh, carregamento a carregamento"
+      subtitle="Quanto pagaste por cada kWh. O custo por 100 km de cada viagem está na tabela abaixo."
+      categories={charges.map((s) => formatDateTime(s.startAt))}
+      tickLabels={tickLabels}
+      series={series}
+      formatValue={(v) => formatUnitPrice(v, 'kWh')}
+      formatTick={(v) => formatDecimal(v, 2)}
+      reference={{ value: average, label: 'média' }}
+      minColumnWidth={MIN_COLUMN_WIDTH}
+      renderDetails={(i) => {
+        const s = charges[i]
+        const type = s.chargerType === null ? 'Sem tipo' : CHARGER_TYPE_LABELS[s.chargerType]
+        return `${type} · ${formatEnergy(s.energyKwh)} · ${formatCurrency(s.cost)}${s.location ? ` · ${s.location}` : ''}`
+      }}
+    />
   )
 }
 

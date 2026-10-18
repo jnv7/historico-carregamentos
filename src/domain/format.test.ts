@@ -4,6 +4,7 @@ import {
   formatCurrency,
   formatDuration,
   formatEnergy,
+  formatInterval,
   formatConsumption,
   formatLiters,
   formatUnitPrice,
@@ -63,5 +64,26 @@ describe('efficiency formatting', () => {
   it('formats consumption per 100 km with 1 decimal', () => {
     expect(formatConsumption(15.24, 'kWh')).toBe('15,2 kWh/100 km')
     expect(formatConsumption(6, 'L')).toBe('6 L/100 km')
+  })
+})
+
+describe('formatInterval', () => {
+  const at = (...parts: [number, number, number, number?, number?]) =>
+    new Date(...parts).toISOString()
+
+  it('shows only the times when both ends are on the same day', () => {
+    expect(formatInterval(at(2026, 9, 17, 15, 1), at(2026, 9, 17, 21, 29))).toBe(
+      '17/10 15:01 → 21:29',
+    )
+  })
+
+  it('shows only the days when they differ within the same year', () => {
+    expect(formatInterval(at(2026, 9, 16, 9, 0), at(2026, 9, 17, 10, 0))).toBe('16/10 → 17/10')
+  })
+
+  it('shows the full dates across years', () => {
+    expect(formatInterval(at(2025, 11, 30, 9, 0), at(2026, 0, 2, 10, 0))).toBe(
+      '30/12/2025 → 02/01/2026',
+    )
   })
 })

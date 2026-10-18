@@ -1419,7 +1419,7 @@ Ficheiros: altera `src/features/stats/StatsScreen.tsx`, `src/features/stats/Stat
 
 **Pronto quando:** todos os testes passam.
 
-### - [ ] D5. "Por registo": mostrar intervalos e o preço por carregamento
+### - [x] D5. "Por registo": mostrar intervalos e o preço por carregamento
 
 Ficheiros: altera `src/domain/efficiency.ts`, `src/domain/format.ts`, `src/domain/format.test.ts`, `src/features/stats/statsShared.ts`, `src/index.css`, `src/features/stats/EntryEfficiencyView.tsx`, `src/features/stats/StatsScreen.test.tsx`
 

@@ -153,6 +153,22 @@ describe('StatsScreen', () => {
     expect(screen.getAllByRole('row')).toHaveLength(3) // header + 2 measurements
   })
 
+  it('shows the price per kWh of each charge in the electric per-entry view', async () => {
+    const user = userEvent.setup()
+    const sessions = [
+      makeSession({ chargerType: 'home', energyKwh: 20, cost: 4 }),
+      makeSession({ chargerType: 'public_dc', energyKwh: 10, cost: 6 }),
+    ]
+    render(<StatsScreen sessions={sessions} fuelEntries={[]} batteryCapacityKwh={null} />)
+
+    await user.click(screen.getByRole('button', { name: 'Por registo' }))
+    await user.click(screen.getByRole('button', { name: 'Elétrico' }))
+
+    expect(screen.getByText('Preço por kWh, carregamento a carregamento')).toBeInTheDocument()
+    // no odometer readings, so only the price chart has something to show
+    expect(screen.getByText(/regista os km do conta-quilómetros/)).toBeInTheDocument()
+  })
+
   it('explains how to get per-entry efficiency when there are no odometer readings', async () => {
     const user = userEvent.setup()
     render(<StatsScreen sessions={[makeSession({})]} fuelEntries={[]} batteryCapacityKwh={null} />)

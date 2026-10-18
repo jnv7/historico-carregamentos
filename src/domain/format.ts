@@ -26,6 +26,20 @@ export function formatTime(isoDate: string): string {
   return timeFormatter.format(new Date(isoDate))
 }
 
+const dayMonthFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: '2-digit' })
+
+/** The span between two moments, as short as it can be: "17/10 15:01 → 21:29", "16/10 → 17/10". */
+export function formatInterval(fromIso: string, toIso: string): string {
+  const from = new Date(fromIso)
+  const to = new Date(toIso)
+  if (from.getFullYear() !== to.getFullYear())
+    return `${formatDate(fromIso)} → ${formatDate(toIso)}`
+  if (from.toDateString() !== to.toDateString()) {
+    return `${dayMonthFormatter.format(from)} → ${dayMonthFormatter.format(to)}`
+  }
+  return `${dayMonthFormatter.format(from)} ${formatTime(fromIso)} → ${formatTime(toIso)}`
+}
+
 export function formatDateTime(isoDate: string): string {
   return `${formatDate(isoDate)} ${formatTime(isoDate)}`
 }

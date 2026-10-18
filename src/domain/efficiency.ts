@@ -22,6 +22,8 @@ export interface EfficiencyPoint {
   id: string
   kind: EntryKind
   startAt: string
+  /** startAt of the previous reading: the interval runs from it to this entry. */
+  previousStartAt: string
   /** Km on the odometer since the previous reading. */
   kmDriven: number
   /** Km used as the divisor: the odometer's, or only those driven on this energy when known. */
@@ -275,6 +277,7 @@ export function computeEfficiencyPoints(
         id: item.id,
         kind: item.kind,
         startAt: item.startAt,
+        previousStartAt: previous.startAt,
         kmDriven,
         distanceKm,
         kmBasis,
